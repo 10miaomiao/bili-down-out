@@ -1,0 +1,87 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'kotlinx-serialization'
+}
+
+android {
+    namespace 'cn.a10miaomiao.bilidown'
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "cn.a10miaomiao.bilidown"
+        minSdk 21
+        targetSdk 33
+        versionCode 1
+        versionName "0.1 alpha"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary true
+        }
+
+        ndk {
+            abiFilters "armeabi-v7a","arm64-v8a","x86","x86_64"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion '1.3.0'
+    }
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+    }
+}
+
+dependencies {
+
+    implementation 'androidx.core:core-ktx:1.7.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.5.1'
+
+    implementation 'androidx.activity:activity-compose:1.3.1'
+    implementation "androidx.compose.ui:ui:$compose_version"
+    implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
+    implementation 'androidx.compose.material3:material3:1.0.1'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+    androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
+    debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
+    debugImplementation "androidx.compose.ui:ui-test-manifest:$compose_version"
+    def nav_version = "2.5.3"
+    def precompose_version = "1.5.0-beta01"
+    def accompanist_pager_version = "0.29.3-SNAPSHOT"
+    implementation("androidx.navigation:navigation-compose:$nav_version")
+
+    api("moe.tlaster:precompose:$precompose_version")
+    api("moe.tlaster:precompose-viewmodel:$precompose_version")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    implementation("io.coil-kt:coil-compose:2.2.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
+    implementation("app.cash.molecule:molecule-runtime:0.4.0")
+
+    implementation "com.google.accompanist:accompanist-pager:$accompanist_pager_version"
+    implementation "com.google.accompanist:accompanist-pager-indicators:$accompanist_pager_version"
+
+    implementation 'com.github.microshow:RxFFmpeg:4.9.0'
+}
