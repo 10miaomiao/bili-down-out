@@ -14,4 +14,19 @@ sealed class BiliDownScreen(
     object Progress : BiliDownScreen("progress", "进度", Icons.Filled.DateRange)
     object Detail : BiliDownScreen("detail", "详情")
     object AddApp : BiliDownScreen("add_app", "添加APP信息")
+
+    companion object {
+        private val routeToNameMap = mapOf(
+            "list" to "哔哩缓存导出",
+            "progress" to "当前进度",
+            "more" to "更多",
+            "add_app" to "添加APP",
+            "detail" to "哔哩缓存详情",
+        )
+
+        fun getRouteName(route: String?): String {
+            val key = route?.split("?")?.get(0) ?: ""
+            return routeToNameMap[key] ?: "BiliDownOut"
+        }
+    }
 }

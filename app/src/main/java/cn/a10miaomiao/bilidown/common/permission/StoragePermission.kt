@@ -44,7 +44,7 @@ class StoragePermission(
     }
 
     fun checkSelfPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < 23) {  // 5.0
+        if (Build.VERSION.SDK_INT < 23 || Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {  // 5.0或安卓10以上
             return true
         }
         val permission1 = ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE)

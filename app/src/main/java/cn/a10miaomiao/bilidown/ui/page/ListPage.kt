@@ -5,33 +5,21 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.Tab
-import androidx.compose.material.TabRow
-import androidx.compose.material.TabRowDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import cn.a10miaomiao.bilidown.common.BiliDownUtils
 import cn.a10miaomiao.bilidown.common.datastore.DataStoreKeys
 import cn.a10miaomiao.bilidown.common.datastore.rememberDataStorePreferencesFlow
 import cn.a10miaomiao.bilidown.common.molecule.collectAction
-import cn.a10miaomiao.bilidown.common.molecule.rememberNestedPresenter
 import cn.a10miaomiao.bilidown.common.molecule.rememberPresenter
 import cn.a10miaomiao.bilidown.entity.BiliAppInfo
 import cn.a10miaomiao.bilidown.ui.BiliDownScreen
-import com.google.accompanist.pager.ExperimentalPagerApi
-import com.google.accompanist.pager.pagerTabIndicatorOffset
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.launch
 
 
@@ -62,7 +50,6 @@ fun ListPagePresenter(
     action.collectAction {
         when (it) {
             ListPageAction.Add -> {
-//                appList.add("列表")
             }
         }
     }
@@ -71,7 +58,7 @@ fun ListPagePresenter(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalPagerApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ListPage(
     navController: NavHostController,
@@ -106,39 +93,21 @@ fun ListPage(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            Row(
+            TabRow(
                 modifier = Modifier.fillMaxWidth(),
+                contentColor = MaterialTheme.colorScheme.onBackground,
+                selectedTabIndex = pagerState.currentPage,
             ) {
-                TabRow(
-                    modifier = Modifier.weight(1f),
-                    backgroundColor = Color.White,
-                    contentColor = Color.Black,
-                    selectedTabIndex = pagerState.currentPage,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            Modifier.pagerTabIndicatorOffset(pagerState, tabPositions)
-                        )
-                    }
-                ) {
-                    // Add tabs for all of our pages
-                    state.appList.forEachIndexed { index, app ->
-                        Tab(
-                            text = { Text(text = app.name) },
-                            selected = pagerState.currentPage == index,
-                            onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                        )
-                    }
-                }
-                Button(
-                    onClick = {
-                        navController.navigate(BiliDownScreen.AddApp.route)
-                    }
-                ) {
-                    Text(text = "管理")
+                state.appList.forEachIndexed { index, app ->
+                    Tab(
+                        text = { Text(text = app.name) },
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
+                    )
                 }
             }
             HorizontalPager(

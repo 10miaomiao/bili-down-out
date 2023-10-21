@@ -78,7 +78,7 @@ fun MorePage(
             text = "BiliDownOut",
         )
         Text(
-            text = "v0.1 alpha",
+            text = "v0.2 alpha",
         )
         Spacer(modifier = Modifier.height(10.dp))
         TextButton(

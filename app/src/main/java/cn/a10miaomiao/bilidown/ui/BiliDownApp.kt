@@ -1,14 +1,21 @@
 package cn.a10miaomiao.bilidown.ui
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -40,12 +47,54 @@ fun BiliDownApp(
                 BiliDownScreen.More,
             )
         }
-
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentDestination = navBackStackEntry?.destination
+        val showBottomBar = currentDestination?.hierarchy?.any { i ->
+            bottomNavList.indexOfFirst { j -> i.route == j.route } != -1
+        }
         Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(BiliDownScreen.getRouteName(currentDestination?.route))
+                    },
+                    navigationIcon = {
+                        AnimatedVisibility (showBottomBar == false) {
+                            IconButton(
+                                onClick = {
+                                    navController.popBackStack()
+                                }
+                            ) {
+                                Icon(Icons.Filled.ArrowBack, null)
+                            }
+                        }
+                    },
+                    actions = {
+                        val isHome = currentDestination?.hierarchy?.any { i ->
+                            i.route == BiliDownScreen.List.route
+                        }
+                        if (isHome == true) {
+                            IconButton(
+                                onClick = {
+                                    navController.navigate(BiliDownScreen.AddApp.route)
+                                }
+                            ) {
+                                Icon(Icons.Filled.Add, null)
+                            }
+                        }
+                    }
+                )
+            },
             bottomBar = {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-                if (currentDestination?.hierarchy?.any { i -> bottomNavList.indexOfFirst { j -> i.route == j.route } != -1 } == true) {
+                AnimatedVisibility(
+                    visible = showBottomBar == true,
+                    enter = slideInVertically(
+                        initialOffsetY = { it },
+                    ),
+                    exit = slideOutVertically(
+                        targetOffsetY = { it },
+                    ),
+                ){
                     MiaoBottomNavigation(
                         modifier = Modifier.fillMaxWidth()
                     ) {

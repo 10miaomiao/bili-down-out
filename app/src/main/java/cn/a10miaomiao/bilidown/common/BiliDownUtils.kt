@@ -36,11 +36,11 @@ object BiliDownUtils {
             "com.a10miaomiao.bilimiao",
             icon = R.drawable.ic_bilimiao
         ),
-//        BiliAppInfo(
-//            "bilimiao-dev",
-//            "cn.a10miaomiao.bilimiao.dev",
-//            icon = R.drawable.ic_bilimiao
-//        ),
+        BiliAppInfo(
+            "bilimiao-dev",
+            "cn.a10miaomiao.bilimiao.dev",
+            icon = R.drawable.ic_bilimiao
+        ),
     )
 
     fun checkSelfPermission(
