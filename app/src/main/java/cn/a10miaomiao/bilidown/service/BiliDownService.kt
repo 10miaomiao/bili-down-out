@@ -7,7 +7,10 @@ import android.net.Uri
 import android.os.IBinder
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
+import androidx.room.Room
 import cn.a10miaomiao.bilidown.common.file.MiaoDocumentFile
+import cn.a10miaomiao.bilidown.db.AppDatabase
+import cn.a10miaomiao.bilidown.db.dao.OutRecord
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryInfo
 import io.microshow.rxffmpeg.RxFFmpegCommandList
 import io.microshow.rxffmpeg.RxFFmpegInvoke
@@ -17,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileInputStream
@@ -33,6 +37,7 @@ class BiliDownService :
         private var _instance: BiliDownService? = null
 
         val instance get() = _instance
+        val status = MutableStateFlow<Status>(Status.InIdle)
 
         suspend fun getService(context: Context): BiliDownService{
             _instance?.let { return it }
@@ -48,14 +53,19 @@ class BiliDownService :
         }
     }
 
+    private lateinit var appDatabase: AppDatabase
+
     private var job: Job = Job()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.IO + job
 
-    val status = MutableStateFlow<Status>(Status.InIdle)
-
     override fun onCreate() {
         super.onCreate()
+        appDatabase = Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java,
+            "bili-down-out"
+        ).build()
         job = Job()
         launch {
             channel.send(this@BiliDownService)
@@ -68,7 +78,7 @@ class BiliDownService :
         _instance = null
     }
 
-    fun exportBiliVideo(
+    suspend fun exportBiliVideo(
         entryDirPath: String,
         outFile: File,
     ) : Boolean{
@@ -76,6 +86,13 @@ class BiliDownService :
             toast("有视频正在导出中，请稍后再试")
             return false
         }
+
+        val t = appDatabase.outRecordDao().findByPath(entryDirPath)
+        if (t != null) {
+            toast("此视频已导出")
+            return false
+        }
+
         if(entryDirPath.startsWith("content:")) {
             return copyAndExportBiliVideo(entryDirPath, outFile)
         }
@@ -133,7 +150,7 @@ class BiliDownService :
     /**
      * 复制并导出
      */
-    fun copyAndExportBiliVideo(
+    suspend fun copyAndExportBiliVideo(
         entryDirPath: String,
         outFile: File,
     ) : Boolean{
@@ -172,7 +189,7 @@ class BiliDownService :
                     progress = 0f,
                 )
                 launch {
-                    videoFile.copyToTemp(outFile)
+                    copyFile(videoFile, outFile)
                 }
                 return false
             }
@@ -217,6 +234,7 @@ class BiliDownService :
         inputFile: File,
         outFile: File
     ) {
+
         val fileInputStream = FileInputStream(inputFile)
         val fileOutputStream = FileOutputStream(outFile)
         val buffer = ByteArray(1024)
@@ -227,9 +245,33 @@ class BiliDownService :
         fileInputStream.close()
         fileOutputStream.flush()
         fileOutputStream.close()
+
+        val currentStatus = status.value
+        addTask(
+            currentStatus.entryDirPath,
+            outFile.path,
+            outFile.name,
+            currentStatus.cover,
+        )
+        status.value = Status.InIdle
     }
 
-    fun mergerVideoAndAudio(
+    private suspend fun copyFile(
+        inputFile: MiaoDocumentFile,
+        outFile: File
+    ) {
+        inputFile.copyToTemp(outFile)
+        val currentStatus = status.value
+        addTask(
+            currentStatus.entryDirPath,
+            outFile.path,
+            outFile.name,
+            currentStatus.cover,
+        )
+        status.value = Status.InIdle
+    }
+
+    private fun mergerVideoAndAudio(
         videoFile: File,
         audioFile: File,
         outFile: File,
@@ -249,22 +291,83 @@ class BiliDownService :
             append(outFile.path)
         }.build()
         //开始执行FFmpeg命令
-        val myRxFFmpegSubscriber = MyRxFFmpegSubscriber(
-            status, getTempPath()
-        )
+        val myRxFFmpegSubscriber = object : MyRxFFmpegSubscriber(
+//            getTempPath()
+        ) {
+            override fun onFinish() {
+                val currentStatus = status.value
+                launch {
+                    addTask(
+                        currentStatus.entryDirPath,
+                        outFile.path,
+                        outFile.name,
+                        currentStatus.cover,
+                    )
+                }
+                val tempPath = getTempPath()
+                val tempVideoFile = File(tempPath,"video.m4s")
+                if (tempVideoFile.exists()) {
+                    tempVideoFile.delete()
+                }
+                val tempAudioFile = File(tempPath,"audio.m4s")
+                if (tempAudioFile.exists()) {
+                    tempAudioFile.delete()
+                }
+                super.onFinish()
+            }
+        }
         RxFFmpegInvoke.getInstance()
             .runCommandRxJava(commands)
             .subscribe(myRxFFmpegSubscriber)
     }
 
-    private fun toast(message: String) {
+    private suspend fun addTask(
+        entryDirPath: String,
+        outFilePath: String,
+        title: String,
+        cover: String,
+    ) {
+        val currentTime = System.currentTimeMillis()
+        val task = OutRecord(
+            entryDirPath = entryDirPath,
+            outFilePath = outFilePath,
+            title = title,
+            cover = cover,
+            status = 1,
+            type = 1,
+            createTime = currentTime,
+            updateTime = currentTime,
+        )
+        appDatabase.outRecordDao().insertAll(task)
+    }
+
+    suspend fun getTaskList(): List<OutRecord> {
+        return appDatabase.outRecordDao().getAll()
+    }
+
+    suspend fun delTask(
+        task: OutRecord,
+    ) {
+        val outFile = File(task.outFilePath)
+        if (outFile.exists()) {
+            outFile.delete()
+            withContext(Dispatchers.Main) {
+                toast("已删除${task.title}")
+            }
+        }
+        appDatabase.outRecordDao().delete(task)
+    }
+
+    private suspend fun toast(message: String) {
         val duration = if (message.length > 10) {
             Toast.LENGTH_LONG
         } else {
             Toast.LENGTH_SHORT
         }
-        Toast.makeText(this, message, duration)
-            .show()
+        withContext(Dispatchers.Main) {
+            Toast.makeText(this@BiliDownService, message, duration)
+                .show()
+        }
     }
 
     private fun getTempPath(): String {

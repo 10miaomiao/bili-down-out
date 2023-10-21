@@ -51,6 +51,16 @@
         </activity>
 
         <service android:name=".service.BiliDownService"/>
+
+        <provider
+            android:authorities="cn.a10miaomiao.bilidown.fileprovider"
+            android:name="androidx.core.content.FileProvider"
+            android:grantUriPermissions="true"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/filepaths"/>
+        </provider>
     </application>
 
 </manifest>
