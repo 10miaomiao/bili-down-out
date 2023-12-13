@@ -24,6 +24,7 @@
         <package android:name="cn.a10miaomiao.bilimiao.dev" />
     </queries>
 
+    <!--requestLegacyExternalStorage属性仅针对安卓10-->
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -33,6 +34,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.BiliDown"
+        android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
         <activity
             android:name=".MainActivity"

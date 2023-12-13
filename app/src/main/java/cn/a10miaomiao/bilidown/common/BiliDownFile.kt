@@ -41,16 +41,12 @@ class BiliDownFile(
 
     fun canRead(): Boolean {
         val downloadDir = createMiaoFile(DIR_DOWNLOAD)
-        if (downloadDir is MiaoDocumentFile) {
-            return downloadDir.canRead()
-        }
-        return false
+        return downloadDir.canRead()
     }
 
     fun readDownloadList(): List<BiliDownloadEntryAndPathInfo> {
         try {
             val downloadDir = createMiaoFile(DIR_DOWNLOAD)
-            Log.d(TAG, downloadDir.path)
             val list = mutableListOf<BiliDownloadEntryAndPathInfo>()
             downloadDir.listFiles()
                 .filter { it.isDirectory }
@@ -111,7 +107,7 @@ class BiliDownFile(
     private fun createMiaoFile(
         dirName: String,
     ): MiaoFile{
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {  // 11以上
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {  // 10以上
             return MiaoDocumentFile(
                 context,
                 getDocumentFileId(),
