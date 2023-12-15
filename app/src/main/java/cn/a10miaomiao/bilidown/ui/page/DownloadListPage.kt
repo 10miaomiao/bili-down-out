@@ -33,7 +33,11 @@ import cn.a10miaomiao.bilidown.entity.DownloadType
 import cn.a10miaomiao.bilidown.ui.BiliDownScreen
 import cn.a10miaomiao.bilidown.ui.components.DownloadListItem
 import cn.a10miaomiao.bilidown.ui.components.PermissionDialog
+import cn.a10miaomiao.bilidown.ui.components.SwipeToRefresh
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 data class DownloadListPageState(
@@ -41,23 +45,27 @@ data class DownloadListPageState(
     val path: String,
     val canRead: Boolean,
     val loading: Boolean,
+    val refreshing: Boolean,
 )
 
 sealed class DownloadListPageAction {
     class GetList(
         val packageName: String,
+    ) : DownloadListPageAction()
 
+    class RefreshList(
+        val packageName: String,
     ) : DownloadListPageAction()
 }
 
 @Composable
 fun DownloadListPagePresenter(
     context: Context,
-
     action: Flow<DownloadListPageAction>,
 ): DownloadListPageState {
-    val list = remember {
-        mutableStateListOf<DownloadInfo>()
+    var list by remember {
+//        mutableStateListOf<DownloadInfo>()
+        mutableStateOf(emptyList<DownloadInfo>())
     }
     var path by remember {
         mutableStateOf("")
@@ -68,90 +76,109 @@ fun DownloadListPagePresenter(
     var loading by remember {
         mutableStateOf(true)
     }
+    var refreshing by remember {
+        mutableStateOf(false)
+    }
 
-    action.collectAction {
-        when (it) {
-            is DownloadListPageAction.GetList -> {
-                val biliDownFile = BiliDownFile(context, it.packageName)
-                canRead = biliDownFile.canRead()
-                if (!canRead) {
-                    return@collectAction
+    fun getList(
+        packageName: String,
+    ) {
+        val biliDownFile = BiliDownFile(context, packageName)
+        canRead = biliDownFile.canRead()
+        if (!canRead) {
+            return
+        }
+        loading = true
+        val newList = mutableListOf<DownloadInfo>()
+        biliDownFile.readDownloadList().forEach {
+            val biliEntry = it.entry
+            var indexTitle = ""
+            var itemTitle = ""
+            var id = 0L
+            var cid = 0L
+            var epid = 0L
+            var type = DownloadType.VIDEO
+            val page = biliEntry.page_data
+            if (page != null) {
+                id = biliEntry.avid!!
+                indexTitle = page.download_title
+                cid = page.cid
+                type = DownloadType.VIDEO
+                itemTitle = page.part
+            }
+            val ep = biliEntry.ep
+            val source = biliEntry.source
+            if (ep != null && source != null) {
+                id = biliEntry.season_id!!.toLong()
+                indexTitle = ep.index_title
+                epid = ep.episode_id
+                cid = source.cid
+                type = DownloadType.BANGUMI
+                itemTitle = if (ep.index_title.isNotBlank()) {
+                    ep.index_title
+                } else {
+                    ep.index
                 }
-                loading = true
-                list.clear()
-                biliDownFile.readDownloadList().forEach {
-                    val biliEntry = it.entry
-                    var indexTitle = ""
-                    var itemTitle = ""
-                    var id = 0L
-                    var cid = 0L
-                    var epid = 0L
-                    var type = DownloadType.VIDEO
-                    val page = biliEntry.page_data
-                    if (page != null) {
-                        id = biliEntry.avid!!
-                        indexTitle = page.download_title
-                        cid = page.cid
-                        type = DownloadType.VIDEO
-                        itemTitle = page.part
-                    }
-                    val ep = biliEntry.ep
-                    val source = biliEntry.source
-                    if (ep != null && source != null) {
-                        id = biliEntry.season_id!!.toLong()
-                        indexTitle = ep.index_title
-                        epid = ep.episode_id
-                        cid = source.cid
-                        type = DownloadType.BANGUMI
-                        itemTitle = if (ep.index_title.isNotBlank()) {
-                            ep.index_title
-                        } else {
-                            ep.index
-                        }
-                    }
-                    val item = DownloadItemInfo(
-                        dir_path = it.entryDirPath,
+            }
+            val item = DownloadItemInfo(
+                dir_path = it.entryDirPath,
+                media_type = biliEntry.media_type,
+                has_dash_audio = biliEntry.has_dash_audio,
+                is_completed = biliEntry.is_completed,
+                total_bytes = biliEntry.total_bytes,
+                downloaded_bytes = biliEntry.downloaded_bytes,
+                title = itemTitle,
+                cover = biliEntry.cover,
+                id = id,
+                type = type,
+                cid = cid,
+                epid = epid,
+                index_title = indexTitle,
+            )
+            val last = newList.lastOrNull()
+            if (last != null
+                && last.type == item.type
+                && last.id == item.id) {
+                if (last.is_completed && !item.is_completed) {
+                    last.is_completed = false
+                }
+                last.items.add(item)
+            } else {
+                newList.add(
+                    DownloadInfo(
+                        dir_path = it.pageDirPath,
                         media_type = biliEntry.media_type,
                         has_dash_audio = biliEntry.has_dash_audio,
                         is_completed = biliEntry.is_completed,
                         total_bytes = biliEntry.total_bytes,
                         downloaded_bytes = biliEntry.downloaded_bytes,
-                        title = itemTitle,
+                        title = biliEntry.title,
                         cover = biliEntry.cover,
+                        cid = cid,
                         id = id,
                         type = type,
-                        cid = cid,
-                        epid = epid,
-                        index_title = indexTitle,
+                        items = mutableListOf(item)
                     )
-                    val last = list.lastOrNull()
-                    if (last != null
-                        && last.type == item.type
-                        && last.id == item.id) {
-                        if (last.is_completed && !item.is_completed) {
-                            last.is_completed = false
-                        }
-                        last.items.add(item)
-                    } else {
-                        list.add(
-                            DownloadInfo(
-                                dir_path = it.pageDirPath,
-                                media_type = biliEntry.media_type,
-                                has_dash_audio = biliEntry.has_dash_audio,
-                                is_completed = biliEntry.is_completed,
-                                total_bytes = biliEntry.total_bytes,
-                                downloaded_bytes = biliEntry.downloaded_bytes,
-                                title = biliEntry.title,
-                                cover = biliEntry.cover,
-                                cid = cid,
-                                id = id,
-                                type = type,
-                                items = mutableListOf(item)
-                            )
-                        )
-                    }
+                )
+            }
+        }
+        list = newList.toList()
+        loading = false
+    }
+
+    action.collectAction {
+        when (it) {
+            is DownloadListPageAction.RefreshList -> {
+                refreshing = true
+                withContext(Dispatchers.IO) {
+                    getList(it.packageName)
                 }
-                loading = false
+                refreshing = false
+            }
+            is DownloadListPageAction.GetList -> {
+                withContext(Dispatchers.IO) {
+                    getList(it.packageName)
+                }
             }
         }
     }
@@ -160,6 +187,7 @@ fun DownloadListPagePresenter(
         path,
         canRead,
         loading,
+        refreshing,
     )
 }
 
@@ -209,82 +237,95 @@ fun DownloadListPage(
         isGranted = permissionState.isGranted,
         onDismiss = { showPermissionDialog = false }
     )
-    if (!permissionState.isGranted || !permissionState.isExternalStorage) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            if (permissionState.isGranted) {
-                Text(text = "请授予所有文件的存储权限")
-                Spacer(modifier = Modifier.height(20.dp))
-                Button(
-                    onClick = {
-                        storagePermission.requestPermissions(::resultCallBack)
+    SwipeToRefresh(
+        refreshing = state.refreshing,
+        onRefresh = {
+            channel.trySend(DownloadListPageAction.RefreshList(
+                packageName = packageName,
+            ))
+//            channel.trySend(DownloadListPageAction.GetList(
+//                packageName = packageName,
+//            ))
+        },
+    ) {
+        if (!permissionState.isGranted || !permissionState.isExternalStorage) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (permissionState.isGranted) {
+                    Text(text = "请授予所有文件的存储权限")
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = {
+                            storagePermission.requestPermissions(::resultCallBack)
+                        }
+                    ) {
+                        Text(text = "授予所有文件的权限")
                     }
-                ) {
-                    Text(text = "授予所有文件的权限")
+                } else {
+                    Text(text = "请授予存储权限")
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = {
+                            storagePermission.requestPermissions(::resultCallBack)
+                        }
+                    ) {
+                        Text(text = "授予权限")
+                    }
                 }
-            } else {
-                Text(text = "请授予存储权限")
+            }
+        } else if (!state.canRead) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(text = "请授予文件夹权限")
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(
                     onClick = {
-                        storagePermission.requestPermissions(::resultCallBack)
+                        val biliDownFile = BiliDownFile(context, packageName)
+                        biliDownFile.startFor(2)
                     }
                 ) {
                     Text(text = "授予权限")
                 }
             }
-        }
-    } else if (!state.canRead) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(text = "请授予文件夹权限")
-            Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                onClick = {
-                    val biliDownFile = BiliDownFile(context, packageName)
-                    biliDownFile.startFor(2)
-                }
+        } else if (!state.loading && state.list.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(text = "授予权限")
-            }
-        }
-    } else if (!state.loading && state.list.isEmpty()) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_movie_pay_area_limit),
-                contentDescription = "空空如也",
-                modifier = Modifier.size(200.dp, 200.dp)
-            )
-            Text(
-                modifier = Modifier.padding(vertical = 8.dp),
-                text = "空空如也",
-            )
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(state.list, { it.id }) {
-                DownloadListItem(
-                    item = it,
-                    onClick = {
-                        val dirPath = Uri.encode(it.dir_path)
-                        navController.navigate(
-                            BiliDownScreen.Detail.route + "?packageName=${packageName}&dirPath=${dirPath}"
-                        )
-                    }
+                Image(
+                    painter = painterResource(id = R.drawable.ic_movie_pay_area_limit),
+                    contentDescription = "空空如也",
+                    modifier = Modifier.size(200.dp, 200.dp)
                 )
+                Text(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    text = "空空如也",
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(state.list, { it.id }) {
+                    DownloadListItem(
+                        item = it,
+                        onClick = {
+                            val dirPath = Uri.encode(it.dir_path)
+                            navController.navigate(
+                                BiliDownScreen.Detail.route + "?packageName=${packageName}&dirPath=${dirPath}"
+                            )
+                        }
+                    )
+                }
             }
         }
     }
+
 }
