@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.IBinder
+import android.util.Log
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import androidx.room.Room
@@ -82,6 +83,7 @@ class BiliDownService :
         entryDirPath: String,
         outFile: File,
     ) : Boolean{
+
         if (status.value != Status.InIdle && status.value !is Status.Error) {
             toast("有视频正在导出中，请稍后再试")
             return false
@@ -121,7 +123,7 @@ class BiliDownService :
             val videoFile = File(videoDir, "video.m4s")
             val audioFile = File(videoDir, "audio.m4s")
             if (!videoFile.exists()) {
-                toast("找不到视频")
+                toast("找不到视频文件")
                 return false
             }
             if (!audioFile.exists()) {
@@ -154,7 +156,7 @@ class BiliDownService :
         entryDirPath: String,
         outFile: File,
     ) : Boolean{
-    val entryDirFile = DocumentFile.fromTreeUri(this, Uri.parse(entryDirPath))!!
+        val entryDirFile = DocumentFile.fromTreeUri(this, Uri.parse(entryDirPath))!!
         val entryJsonFile = MiaoDocumentFile(this, entryDirFile, "/entry.json")
         val json = Json { ignoreUnknownKeys = true }
         val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
@@ -170,6 +172,7 @@ class BiliDownService :
 //        }
 //        val videoIndexJson = videoIndexJsonFile.readText()
         if (entry.media_type == 1) {
+
             toast("暂不支持导出此类视频")
             return false
             // 直接复制改后缀复制
@@ -177,7 +180,7 @@ class BiliDownService :
             val videoFile = MiaoDocumentFile(this, videoDir.documentFile, "/video.m4s")
             val audioFile = MiaoDocumentFile(this, videoDir.documentFile, "/audio.m4s")
             if (!videoFile.exists()) {
-                toast("找不到视频")
+                toast("找不到视频文件")
                 return false
             }
             if (!audioFile.exists()) {

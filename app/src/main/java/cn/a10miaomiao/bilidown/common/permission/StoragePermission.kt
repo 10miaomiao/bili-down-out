@@ -44,7 +44,7 @@ class StoragePermission(
     }
 
     fun checkSelfPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < 23 || Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {  // 5.0或安卓10以上
+        if (Build.VERSION.SDK_INT < 23 || Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {  // 5.0或安卓10以上
             return true
         }
         val permission1 = ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -53,7 +53,7 @@ class StoragePermission(
     }
 
     fun isExternalStorageManager(): Boolean {
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {  // 10以上
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {  // 10以上
             return Environment.isExternalStorageManager()
         }
         return true

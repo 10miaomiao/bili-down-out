@@ -78,7 +78,7 @@ fun MorePage(
             text = "BiliDownOut",
         )
         Text(
-            text = "v0.2 alpha",
+            text = "v0.3 alpha",
         )
         Spacer(modifier = Modifier.height(10.dp))
         TextButton(
@@ -100,6 +100,7 @@ fun MorePage(
         Text(
             text = "૮₍ ˃ ⤙ ˂ ₎ა",
         )
+        Spacer(modifier = Modifier.height(100.dp))
 //        colorList.forEach {
 //            Box(modifier = Modifier
 //                .size(200.dp, 50.dp)
