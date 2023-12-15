@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,7 +39,7 @@ fun RecordItem(
     cover: String,
     status: Int,
     onClick: () -> Unit,
-    onDeleteClick: () -> Unit,
+    onDeleteClick: (isDeleteFile: Boolean) -> Unit,
 ) {
     var expandedMoreMenu by remember { mutableStateOf(false) }
 
@@ -83,7 +84,7 @@ fun RecordItem(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            val statusText = when(status) {
+                            val statusText = when (status) {
                                 0 -> "正在导出中"
                                 1 -> "已导出"
                                 -1 -> "导出文件已被删除"
@@ -92,8 +93,12 @@ fun RecordItem(
                             Text(
                                 modifier = Modifier.weight(1f),
                                 text = statusText,
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.outline,
+//                                maxLines = 1,
+                                color = if (status >= 0) {
+                                    MaterialTheme.colorScheme.outline
+                                } else {
+                                    Color.Red
+                                },
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Box() {
@@ -109,10 +114,19 @@ fun RecordItem(
                                     DropdownMenuItem(
                                         onClick = {
                                             expandedMoreMenu = false
-                                            onDeleteClick()
+                                            onDeleteClick(false)
                                         },
                                         text = {
                                             Text(text = "删除记录")
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            expandedMoreMenu = false
+                                            onDeleteClick(true)
+                                        },
+                                        text = {
+                                            Text(text = "删除记录及文件")
                                         }
                                     )
                                 }

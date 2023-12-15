@@ -1,9 +1,12 @@
 package cn.a10miaomiao.bilidown.ui.page
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -16,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -23,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
+import cn.a10miaomiao.bilidown.common.BiliDownOutFile
 import cn.a10miaomiao.bilidown.common.UrlUtil
 import cn.a10miaomiao.bilidown.common.molecule.collectAction
 import cn.a10miaomiao.bilidown.common.molecule.rememberPresenter
@@ -32,6 +37,7 @@ import cn.a10miaomiao.bilidown.ui.components.OutFolderDialog
 import cn.a10miaomiao.bilidown.ui.components.RecordItem
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -44,15 +50,16 @@ data class ProgressPageState(
 }
 
 
-
 sealed class ProgressPageAction {
     object GetTaskList : ProgressPageAction()
     object OpenOutFolder : ProgressPageAction()
     class OpenVideo(
         val record: OutRecord
     ) : ProgressPageAction()
+
     class DeleteOutRecord(
-        val record: OutRecord
+        val record: OutRecord,
+        val isDeleteFile: Boolean,
     ) : ProgressPageAction()
 }
 
@@ -64,29 +71,45 @@ fun ProgressPagePresenter(
     var status by remember {
         mutableStateOf<BiliDownService.Status>(BiliDownService.Status.InIdle)
     }
-    val recordList = remember {
-        mutableStateListOf<OutRecord>()
+    var recordList by remember {
+        mutableStateOf(emptyList<OutRecord>())
     }
     LaunchedEffect(context) {
         BiliDownService.status.collect {
             status = it
         }
     }
+
+
     action.collectAction {
         when (it) {
             is ProgressPageAction.OpenOutFolder -> {
             }
+
             is ProgressPageAction.GetTaskList -> {
                 val biliDownService = BiliDownService.getService(context)
-                recordList.clear()
-                recordList.addAll(biliDownService.getTaskList())
+                recordList = biliDownService.getTaskList()
+                withContext(Dispatchers.IO) {
+                    recordList = recordList.map { record ->
+                        if (record.status == 1) {
+                            val exists = File(record.outFilePath).exists()
+                            record.copy(
+                                status = if (exists) 1 else -1,
+                            )
+                        } else {
+                            record
+                        }
+                    }
+                }
             }
+
             is ProgressPageAction.OpenVideo -> {
                 val videoFile = File(it.record.outFilePath)
                 if (videoFile.exists()) {
                     val intent = Intent(Intent.ACTION_VIEW)
                     val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+                        intent.flags =
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
                         FileProvider.getUriForFile(
                             context,
                             "cn.a10miaomiao.bilidown.fileprovider",
@@ -106,9 +129,8 @@ fun ProgressPagePresenter(
             }
             is ProgressPageAction.DeleteOutRecord -> {
                 val biliDownService = BiliDownService.getService(context)
-                biliDownService.delTask(it.record)
-                recordList.clear()
-                recordList.addAll(biliDownService.getTaskList())
+                biliDownService.delTask(it.record, it.isDeleteFile)
+                recordList = biliDownService.getTaskList()
             }
         }
     }
@@ -218,6 +240,56 @@ fun TaskProgress(
 }
 
 @Composable
+internal fun ReconfirmDeleteDialog(
+    channel: Channel<ProgressPageAction>,
+    action: ProgressPageAction.DeleteOutRecord?,
+    onDismiss: () -> Unit,
+) {
+    if (action != null) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                if (action.isDeleteFile) {
+                    Text(text = "确认删除该条记录，并删除文件？")
+                } else {
+                    Text(text = "确认删除该条记录？")
+                }
+            },
+            text = {
+                Column {
+                    Text("删除：" + action.record.title)
+                    if (action.isDeleteFile) {
+                        Text(
+                            color = Color.Red,
+                            text = "删除记录，并同时删除导出文件",
+                        )
+                    } else {
+                        Text("仅删除记录，不删除文件")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        channel.trySend(action)
+                        onDismiss()
+                    },
+                ) {
+                    Text("确认删除")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onDismiss,
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
+
+@Composable
 fun ProgressPage(
     navController: NavHostController,
 ) {
@@ -242,6 +314,17 @@ fun ProgressPage(
         },
     )
 
+    var reconfirmDeleteDialogAction by remember {
+        mutableStateOf<ProgressPageAction.DeleteOutRecord?>(null)
+    }
+    ReconfirmDeleteDialog(
+        channel = channel,
+        action = reconfirmDeleteDialogAction,
+        onDismiss = {
+            reconfirmDeleteDialogAction = null
+        },
+    )
+
     LazyColumn() {
         item("TaskProgress-head") {
             Text(
@@ -258,19 +341,19 @@ fun ProgressPage(
                 modifier = Modifier.padding(10.dp)
             )
         }
-        items(state.recordList, { it.id!! }) {
+        items(state.recordList, { it.id!! }) { item ->
             RecordItem(
-                title = it.title,
-                cover = it.cover,
-                status = it.status,
+                title = item.title,
+                cover = item.cover,
+                status = item.status,
                 onClick = {
                     channel.trySend(
-                        ProgressPageAction.OpenVideo(it)
+                        ProgressPageAction.OpenVideo(item)
                     )
                 },
                 onDeleteClick = {
-                    channel.trySend(
-                        ProgressPageAction.DeleteOutRecord(it)
+                    reconfirmDeleteDialogAction = ProgressPageAction.DeleteOutRecord(
+                        record = item, isDeleteFile = it
                     )
                 }
             )
@@ -288,6 +371,6 @@ fun ProgressPage(
                 }
             }
         }
-        
+
     }
 }

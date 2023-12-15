@@ -350,15 +350,23 @@ class BiliDownService :
 
     suspend fun delTask(
         task: OutRecord,
+        isDeleteFile: Boolean,
     ) {
-        val outFile = File(task.outFilePath)
-        if (outFile.exists()) {
-            outFile.delete()
+        if (isDeleteFile) {
+            val outFile = File(task.outFilePath)
+            if (outFile.exists()) {
+                outFile.delete()
+            }
+            appDatabase.outRecordDao().delete(task)
             withContext(Dispatchers.Main) {
-                toast("已删除${task.title}")
+                toast("已删除记录及文件${task.title}")
+            }
+        } else {
+            appDatabase.outRecordDao().delete(task)
+            withContext(Dispatchers.Main) {
+                toast("已删除记录${task.title}")
             }
         }
-        appDatabase.outRecordDao().delete(task)
     }
 
     private suspend fun toast(message: String) {
