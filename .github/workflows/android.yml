@@ -32,3 +32,9 @@ jobs:
       run: chmod +x gradlew
     - name: Build with Gradle
       run: ./gradlew assembleRelease
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BiliDownOut-GitHub-Build-${{ github.sha }}.apk
+        path: app/build/outputs/apk/github/release/*.apk
