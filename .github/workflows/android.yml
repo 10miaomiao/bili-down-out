@@ -20,7 +20,15 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: Generate signing.properties
+      run: |
+        rm -rf 10miaomiao.jks
+        ${{ secrets.BASH_DOWNLOAD_JKS }}
+        echo "KEYSTORE_FILE = ${{github.workspace}}/10miaomiao.jks" > app/signing.properties
+        echo "KEYSTORE_PASSWORD = ${{ secrets.KEYSTORE_PASSWORD }}" >> app/signing.properties
+        echo "KEY_ALIAS = ${{ secrets.KEY_ALIAS }}" >> app/signing.properties
+        echo "KEY_PASSWORD = ${{ secrets.KEY_PASSWORD }}" >> app/signing.properties
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     - name: Build with Gradle
-      run: ./gradlew build
+      run: ./gradlew assembleRelease
