@@ -1,6 +1,7 @@
 package cn.a10miaomiao.bilidown.service
 
 import android.util.Log
+import cn.a10miaomiao.bilidown.common.MiaoLog
 import io.microshow.rxffmpeg.RxFFmpegSubscriber
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
@@ -30,6 +31,7 @@ open class MyRxFFmpegSubscriber(
     }
 
     override fun onError(message: String) {
+        MiaoLog.info { message }
         BiliDownService.status.value = BiliDownService.Status.Error(
             BiliDownService.status.value,
             message,

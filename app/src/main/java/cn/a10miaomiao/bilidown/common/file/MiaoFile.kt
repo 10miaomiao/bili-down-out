@@ -12,6 +12,7 @@ import java.io.File
 
 interface MiaoFile {
     val path: String
+    val name: String
     val isDirectory: Boolean
     fun exists(): Boolean
     fun listFiles(): List<MiaoFile>

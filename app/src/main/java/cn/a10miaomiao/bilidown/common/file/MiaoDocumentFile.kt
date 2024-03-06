@@ -139,6 +139,9 @@ class MiaoDocumentFile(
     override val isDirectory: Boolean
         get() = documentFile.isDirectory
 
+    override val name: String
+        get() = documentFile.name ?: ""
+
     override fun exists(): Boolean {
         return documentFile.exists()
     }

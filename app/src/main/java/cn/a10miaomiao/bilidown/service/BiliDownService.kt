@@ -98,7 +98,7 @@ class BiliDownService :
         if(entryDirPath.startsWith("content:")) {
             return copyAndExportBiliVideo(entryDirPath, outFile)
         }
-
+        val entryDirFile = File(entryDirPath)
         val entryJsonFile = File(entryDirPath, "entry.json")
         val json = Json { ignoreUnknownKeys = true }
         val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
@@ -106,8 +106,25 @@ class BiliDownService :
         val videoDirPath = entryDirPath + "/" + entry.type_tag
         val videoDir = File(videoDirPath)
         if (!videoDir.exists() || !videoDir.isDirectory) {
-            toast("找不到视频文件夹")
-            return false
+            val videoFile = entryDirFile.listFiles().find {
+                it.isFile && it.name.startsWith(entry.type_tag)
+                        && it.name.endsWith(".mp4")
+            }
+            if (videoFile == null) {
+                toast("找不到视频文件夹：${entry.type_tag}")
+                return false
+            }
+            // 直接复制mp4文件
+            status.value = Status.Copying(
+                name = entry.name,
+                entryDirPath = entryDirPath,
+                cover = entry.cover,
+                progress = 0f,
+            )
+            launch {
+                copyFile(videoFile, outFile)
+            }
+            return true
         }
 //        val videoIndexJsonFile = File(videoDirPath, "index.json")
 //        if (!videoIndexJsonFile.exists()) {
@@ -116,9 +133,33 @@ class BiliDownService :
 //        }
 //        val videoIndexJson = videoIndexJsonFile.readText()
         if (entry.media_type == 1) {
-            toast("暂不支持导出此类视频")
-            return false
-            // 直接复制改后缀复制
+            // 多段blv(flv)视频
+            val blvFiles = mutableListOf<File>()
+            var blvIndex = 0
+            while (true) {
+                val file = File(videoDir, "/${blvIndex}.blv")
+                if (file.exists()) {
+                    blvFiles.add(file)
+                    blvIndex++
+                } else {
+                    break
+                }
+            }
+            if (blvFiles.isEmpty()) {
+                toast("找不到视频文件：0.blv")
+                return false
+            }
+            status.value = Status.InProgress(
+                name = entry.name,
+                entryDirPath = entryDirPath,
+                cover = entry.cover,
+                progress = 0f
+            )
+            mergerVideos(
+                blvFiles,
+                outFile
+            )
+            return true
         } else {
             val videoFile = File(videoDir, "video.m4s")
             val audioFile = File(videoDir, "audio.m4s")
@@ -161,9 +202,27 @@ class BiliDownService :
         val json = Json { ignoreUnknownKeys = true }
         val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
         val videoDir = MiaoDocumentFile(this, entryDirFile, "/${entry.type_tag}")
+
         if (!videoDir.exists() || !videoDir.isDirectory) {
-            toast("找不到视频文件夹")
-            return false
+            val videoFile = entryDirFile.listFiles().find {
+                it.isFile && it.name?.startsWith(entry.type_tag) == true
+                        && it.name?.endsWith(".mp4") == true
+            }
+            if (videoFile == null) {
+                toast("找不到视频文件夹：${entry.type_tag}")
+                return false
+            }
+            // 直接复制mp4文件
+            status.value = Status.Copying(
+                name = entry.name,
+                entryDirPath = entryDirPath,
+                cover = entry.cover,
+                progress = 0f,
+            )
+            launch {
+                copyFile(MiaoDocumentFile(this@BiliDownService, videoFile), outFile)
+            }
+            return true
         }
 //        val videoIndexJsonFile = File(videoDirPath, "index.json")
 //        if (!videoIndexJsonFile.exists()) {
@@ -172,15 +231,60 @@ class BiliDownService :
 //        }
 //        val videoIndexJson = videoIndexJsonFile.readText()
         if (entry.media_type == 1) {
-
-            toast("暂不支持导出此类视频")
-            return false
-            // 直接复制改后缀复制
+            // 多段blv(flv)视频
+            val blvFiles = mutableListOf<MiaoDocumentFile>()
+            var blvIndex = 0
+            while (true) {
+                val file = MiaoDocumentFile(this, videoDir.documentFile, "/${blvIndex}.blv")
+                if (file.exists()) {
+                    blvFiles.add(file)
+                    blvIndex++
+                } else {
+                    break
+                }
+            }
+            if (blvFiles.isEmpty()) {
+                toast("找不到视频文件：0.blv")
+                return false
+            }
+            status.value = Status.CopyingToTemp(
+                name = entry.name,
+                entryDirPath = entryDirPath,
+                cover = entry.cover,
+                progress = 0f,
+            )
+            launch {
+                try {
+                    val tempFiles = blvFiles.map {
+                        val tempF = File(getTempPath(), it.name)
+                        it.copyToTemp(tempF)
+                        tempF
+                    }
+                    status.value = Status.InProgress(
+                        name = entry.name,
+                        entryDirPath = entryDirPath,
+                        cover = entry.cover,
+                        progress = 0f
+                    )
+                    mergerVideos(
+                        tempFiles,
+                        outFile
+                    )
+                } catch (e: Exception) {
+                    status.value = Status.Error(
+                        status.value,
+                        e.message ?: e.toString(),
+                    )
+                    e.printStackTrace()
+                }
+            }
+            return true
         } else {
+            // 音视频分离视频
             val videoFile = MiaoDocumentFile(this, videoDir.documentFile, "/video.m4s")
             val audioFile = MiaoDocumentFile(this, videoDir.documentFile, "/audio.m4s")
             if (!videoFile.exists()) {
-                toast("找不到视频文件")
+                toast("找不到视频文件：video.m4s")
                 return false
             }
             if (!audioFile.exists()) {
@@ -201,8 +305,8 @@ class BiliDownService :
                 entryDirPath = entryDirPath,
                 cover = entry.cover,
                 progress = 0f,
-                audioFile = audioFile,
-                videoFile = videoFile,
+//                audioFile = audioFile,
+//                videoFile = videoFile,
             )
             launch {
                 try {
@@ -308,14 +412,50 @@ class BiliDownService :
                     )
                 }
                 val tempPath = getTempPath()
-                val tempVideoFile = File(tempPath,"video.m4s")
-                if (tempVideoFile.exists()) {
-                    tempVideoFile.delete()
+                File(tempPath).deleteRecursively()
+                super.onFinish()
+            }
+        }
+        RxFFmpegInvoke.getInstance()
+            .runCommandRxJava(commands)
+            .subscribe(myRxFFmpegSubscriber)
+    }
+
+    private fun  mergerVideos(
+        videoFiles: List<File>,
+        outFile: File,
+    ) {
+        val ffTxtFile = File(getTempPath(),"ff.txt")
+        val ffTxtContent = videoFiles.map {
+            file -> "file '${file.path}'"
+        }.joinToString("\n")
+        ffTxtFile.writeText(ffTxtContent)
+
+        val commands = RxFFmpegCommandList().apply {
+            append("-f")
+            append("concat")
+            append("-safe")
+            append("0")
+            append("-i")
+            append(ffTxtFile.path)
+            append("-c")
+            append("copy")
+            append(outFile.path)
+        }.build()
+        //开始执行FFmpeg命令
+        val myRxFFmpegSubscriber = object : MyRxFFmpegSubscriber() {
+            override fun onFinish() {
+                val currentStatus = status.value
+                launch {
+                    addTask(
+                        currentStatus.entryDirPath,
+                        outFile.path,
+                        outFile.name,
+                        currentStatus.cover,
+                    )
                 }
-                val tempAudioFile = File(tempPath,"audio.m4s")
-                if (tempAudioFile.exists()) {
-                    tempAudioFile.delete()
-                }
+                val tempPath = getTempPath()
+                File(tempPath).deleteRecursively()
                 super.onFinish()
             }
         }
@@ -406,8 +546,8 @@ class BiliDownService :
             override val name: String,
             override val cover: String,
             override val progress: Float,
-            val videoFile: MiaoDocumentFile,
-            val audioFile: MiaoDocumentFile,
+//            val videoFile: MiaoDocumentFile,
+//            val audioFile: MiaoDocumentFile,
         ): Status()
 
         data class Copying(

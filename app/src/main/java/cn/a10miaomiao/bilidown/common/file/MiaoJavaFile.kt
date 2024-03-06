@@ -16,6 +16,9 @@ class MiaoJavaFile(
     override val isDirectory: Boolean
         get() = file.isDirectory
 
+    override val name: String
+        get() = file.name
+
     override fun exists(): Boolean {
         return file.exists()
     }
