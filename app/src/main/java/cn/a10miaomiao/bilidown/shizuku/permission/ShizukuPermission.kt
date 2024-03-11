@@ -5,23 +5,32 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.view.View
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.datastore.preferences.core.edit
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.coroutineScope
+import androidx.lifecycle.lifecycleScope
 import cn.a10miaomiao.bilidown.MainActivity
 import cn.a10miaomiao.bilidown.common.MiaoLog
+import cn.a10miaomiao.bilidown.common.datastore.DataStoreKeys
+import cn.a10miaomiao.bilidown.common.datastore.dataStore
 import cn.a10miaomiao.bilidown.common.permission.StoragePermission
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuProvider.MANAGER_APPLICATION_ID
 
 class ShizukuPermission(
-    val activity: Activity,
+    val activity: FragmentActivity,
 ): Shizuku.OnRequestPermissionResultListener
     , Shizuku.OnBinderReceivedListener
     , Shizuku.OnBinderDeadListener {
 
     companion object {
-        val isAboveN = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+        val isAboveN get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
         const val SHIZUKU_PERMISSION_REQUEST_CODE = 413
     }
 
@@ -103,8 +112,15 @@ class ShizukuPermission(
                 isPreV11 = Shizuku.isPreV11(),
                 isRunning = true,
                 isGranted = isGranted,
-                isEnabled = isGranted && true,
+                isEnabled = isGranted && state.value.isEnabled,
             )
+            activity.lifecycleScope.launch {
+                activity.dataStore.edit {
+                    state.value = state.value.copy(
+                        isEnabled = isGranted && (it[DataStoreKeys.enabledShizuku] ?: false),
+                    )
+                }
+            }
         } else {
             state.value = ShizukuPermissionState(
                 isInstalled = isInstalled(context),
@@ -138,6 +154,11 @@ class ShizukuPermission(
         state.value = state.value.copy(
             isEnabled = enabled
         )
+        activity.lifecycleScope.launch {
+            activity.dataStore.edit {
+                it[DataStoreKeys.enabledShizuku] = enabled
+            }
+        }
     }
 
     data class ShizukuPermissionState(

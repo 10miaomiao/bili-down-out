@@ -99,20 +99,25 @@ fun MorePage(
         onDismiss = { dialogAction = ShizukuHelpDialogAction.None }
     )
     Column {
-        if (!ShizukuPermission.isAboveN) {
-            SettingItem(
-                title = "Shizuku",
-                desc = shizukuPermissionState.statusText,
-                iconPainter = painterResource(R.mipmap.ic_shizuku),
-                action = {
-                    Switch(
-                        checked = shizukuPermissionState.isEnabled,
-                        onCheckedChange = ::changeShizukuEnabled
-                    )
-                }
-            ) {
-                changeShizukuEnabled(!shizukuPermissionState.isEnabled)
+        val isAboveN = ShizukuPermission.isAboveN
+        SettingItem(
+            title = "Shizuku",
+            desc = if (isAboveN) {
+                shizukuPermissionState.statusText
+            } else {
+                "需Android7.0+"
+            },
+            iconPainter = painterResource(R.mipmap.ic_shizuku),
+            enabled = isAboveN,
+            action = {
+                Switch(
+                    checked = shizukuPermissionState.isEnabled,
+                    onCheckedChange = ::changeShizukuEnabled,
+                    enabled = isAboveN,
+                )
             }
+        ) {
+            changeShizukuEnabled(!shizukuPermissionState.isEnabled)
         }
 
         SettingItem(
