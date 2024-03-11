@@ -30,6 +30,7 @@ import cn.a10miaomiao.bilidown.common.molecule.rememberPresenter
 import cn.a10miaomiao.bilidown.entity.DownloadInfo
 import cn.a10miaomiao.bilidown.entity.DownloadItemInfo
 import cn.a10miaomiao.bilidown.entity.DownloadType
+import cn.a10miaomiao.bilidown.shizuku.localShizukuPermission
 import cn.a10miaomiao.bilidown.ui.BiliDownScreen
 import cn.a10miaomiao.bilidown.ui.components.DownloadListItem
 import cn.a10miaomiao.bilidown.ui.components.PermissionDialog
@@ -51,10 +52,12 @@ data class DownloadListPageState(
 sealed class DownloadListPageAction {
     class GetList(
         val packageName: String,
+        val enabledShizuku: Boolean,
     ) : DownloadListPageAction()
 
     class RefreshList(
         val packageName: String,
+        val enabledShizuku: Boolean,
     ) : DownloadListPageAction()
 }
 
@@ -80,10 +83,11 @@ fun DownloadListPagePresenter(
         mutableStateOf(false)
     }
 
-    fun getList(
+    suspend fun getList(
         packageName: String,
+        enabledShizuku: Boolean,
     ) {
-        val biliDownFile = BiliDownFile(context, packageName)
+        val biliDownFile = BiliDownFile(context, packageName, enabledShizuku)
         canRead = biliDownFile.canRead()
         if (!canRead) {
             return
@@ -138,7 +142,8 @@ fun DownloadListPagePresenter(
             val last = newList.lastOrNull()
             if (last != null
                 && last.type == item.type
-                && last.id == item.id) {
+                && last.id == item.id
+            ) {
                 if (last.is_completed && !item.is_completed) {
                     last.is_completed = false
                 }
@@ -171,13 +176,14 @@ fun DownloadListPagePresenter(
             is DownloadListPageAction.RefreshList -> {
                 refreshing = true
                 withContext(Dispatchers.IO) {
-                    getList(it.packageName)
+                    getList(it.packageName, it.enabledShizuku)
                 }
                 refreshing = false
             }
+
             is DownloadListPageAction.GetList -> {
                 withContext(Dispatchers.IO) {
-                    getList(it.packageName)
+                    getList(it.packageName, it.enabledShizuku)
                 }
             }
         }
@@ -200,28 +206,43 @@ fun DownloadListPage(
     var showPermissionDialog by remember { mutableStateOf(false) }
     val storagePermission = localStoragePermission()
     val permissionState = storagePermission.collectState()
+    val shizukuPermission = localShizukuPermission()
+    val shizukuPermissionState = shizukuPermission.collectState()
 
     val (state, channel) = rememberPresenter(listOf(packageName, permissionState)) {
         DownloadListPagePresenter(context, it)
     }
 
-    LaunchedEffect(packageName, permissionState.isGranted, permissionState.isExternalStorage) {
-        if (permissionState.isGranted
-            && permissionState.isExternalStorage
-            && state.list.isEmpty())
-        {
-            channel.send(DownloadListPageAction.GetList(
-                packageName = packageName,
-            ))
+    LaunchedEffect(
+        packageName,
+        permissionState.isGranted,
+        permissionState.isExternalStorage,
+        shizukuPermissionState.isRunning,
+        shizukuPermissionState.isEnabled,
+    ) {
+        if (state.list.isEmpty()
+            && ((permissionState.isGranted && permissionState.isExternalStorage)
+               || (shizukuPermissionState.isRunning && shizukuPermissionState.isEnabled)
+           )
+        ) {
+            channel.send(
+                DownloadListPageAction.GetList(
+                    packageName = packageName,
+                    shizukuPermissionState.isEnabled,
+                )
+            )
         }
     }
 
     LaunchedLifecycleObserver(
         onResume = {
             if (state.list.isEmpty()) {
-                channel.trySend(DownloadListPageAction.GetList(
-                    packageName = packageName,
-                ))
+                channel.trySend(
+                    DownloadListPageAction.GetList(
+                        packageName = packageName,
+                        shizukuPermissionState.isEnabled,
+                    )
+                )
             }
         }
     )
@@ -240,12 +261,12 @@ fun DownloadListPage(
     SwipeToRefresh(
         refreshing = state.refreshing,
         onRefresh = {
-            channel.trySend(DownloadListPageAction.RefreshList(
-                packageName = packageName,
-            ))
-//            channel.trySend(DownloadListPageAction.GetList(
-//                packageName = packageName,
-//            ))
+            channel.trySend(
+                DownloadListPageAction.RefreshList(
+                    packageName = packageName,
+                    enabledShizuku = shizukuPermissionState.isEnabled,
+                )
+            )
         },
     ) {
         if (!permissionState.isGranted || !permissionState.isExternalStorage) {
@@ -286,7 +307,7 @@ fun DownloadListPage(
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(
                     onClick = {
-                        val biliDownFile = BiliDownFile(context, packageName)
+                        val biliDownFile = BiliDownFile(context, packageName, shizukuPermissionState.isEnabled)
                         biliDownFile.startFor(2)
                     }
                 ) {

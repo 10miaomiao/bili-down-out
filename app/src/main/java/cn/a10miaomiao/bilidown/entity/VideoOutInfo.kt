@@ -4,8 +4,9 @@ import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
-data class BiliDownloadEntryAndPathInfo(
-    val pageDirPath: String,
+data class VideoOutInfo(
     val entryDirPath: String,
-    val entry: BiliDownloadEntryInfo,
-): Parcelable
+    val outFilePath: String,
+    val name: String,
+    val cover: String,
+) : Parcelable

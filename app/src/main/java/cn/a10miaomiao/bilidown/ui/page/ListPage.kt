@@ -2,10 +2,12 @@ package cn.a10miaomiao.bilidown.ui.page
 
 import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,7 +60,7 @@ fun ListPagePresenter(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ListPage(
     navController: NavHostController,
@@ -93,8 +95,9 @@ fun ListPage(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            TabRow(
-                modifier = Modifier.fillMaxWidth(),
+            PrimaryTabRow(
+                modifier = Modifier.fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background),
                 contentColor = MaterialTheme.colorScheme.onBackground,
                 selectedTabIndex = pagerState.currentPage,
             ) {

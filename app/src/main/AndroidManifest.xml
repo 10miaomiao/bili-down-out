@@ -11,6 +11,8 @@
         tools:ignore="ScopedStorage" />
 <!--    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>-->
 
+    <uses-sdk tools:overrideLibrary="dev.rikka.shizuku.provider,dev.rikka.shizuku.api,dev.rikka.shizuku.shared,dev.rikka.shizuku.aidl"/>
+
     <queries>
         <!-- 哔哩哔哩 -->
         <package android:name="tv.danmaku.bili" />
@@ -22,6 +24,8 @@
         <package android:name="com.a10miaomiao.bilimiao" />
         <!-- bilimiao-dev -->
         <package android:name="cn.a10miaomiao.bilimiao.dev" />
+        <!-- shizuku -->
+        <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
     <!--requestLegacyExternalStorage属性仅针对安卓10-->
@@ -63,6 +67,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/filepaths"/>
         </provider>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 
 </manifest>

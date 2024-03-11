@@ -10,17 +10,19 @@ sealed class BiliDownScreen(
     val icon: ImageVector = Icons.Filled.Favorite,
 ) {
     object List : BiliDownScreen("list", "列表", Icons.Filled.Home)
-    object More : BiliDownScreen("more", "更多", Icons.Filled.Menu)
+    object More : BiliDownScreen("more", "设置", Icons.Filled.Settings)
     object Progress : BiliDownScreen("progress", "进度", Icons.Filled.DateRange)
     object Detail : BiliDownScreen("detail", "详情")
     object AddApp : BiliDownScreen("add_app", "添加APP信息")
+    object About : BiliDownScreen("about", "关于")
 
     companion object {
         private val routeToNameMap = mapOf(
             "list" to "哔哩缓存导出",
             "progress" to "当前进度",
-            "more" to "更多",
+            "more" to "设置",
             "add_app" to "添加APP",
+            "about" to "关于",
             "detail" to "哔哩缓存详情",
         )
 

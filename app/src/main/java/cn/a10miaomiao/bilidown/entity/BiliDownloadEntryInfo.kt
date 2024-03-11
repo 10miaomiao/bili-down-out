@@ -1,8 +1,11 @@
 package cn.a10miaomiao.bilidown.entity
 
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
 @Serializable
+@Parcelize
 data class BiliDownloadEntryInfo(
     val media_type: Int = 1,
     val has_dash_audio: Boolean = false,
@@ -29,7 +32,7 @@ data class BiliDownloadEntryInfo(
     val season_id: String? = null,
     val source: SourceInfo? = null,
     var ep: EpInfo? = null,
-) {
+): Parcelable {
 
     val key: Long
         get() {
@@ -51,6 +54,7 @@ data class BiliDownloadEntryInfo(
 
     // 视频分P信息
     @Serializable
+    @Parcelize
     data class PageInfo(
         val cid: Long,
         val page: Int,
@@ -64,17 +68,20 @@ data class BiliDownloadEntryInfo(
         val rotate: Int = 0,
         val download_title: String? = null,
         val download_subtitle: String? = null
-    )
+    ): Parcelable
+
     // 番剧源信息
     @Serializable
+    @Parcelize
     data class SourceInfo(
         val av_id: Long,
         val cid: Long,
         val website: String,
-    )
+    ): Parcelable
 
     // 番剧剧集信息
     @Serializable
+    @Parcelize
     data class EpInfo(
         val av_id: Long,
         val page: Int,
@@ -91,5 +98,6 @@ data class BiliDownloadEntryInfo(
         val link: String = "",
         val bvid: String = "",
         val sort_index: Int = 0,
-    )
+    ): Parcelable
+
 }

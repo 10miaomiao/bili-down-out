@@ -12,6 +12,7 @@ import cn.a10miaomiao.bilidown.common.file.MiaoFile
 import cn.a10miaomiao.bilidown.common.file.MiaoJavaFile
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryAndPathInfo
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryInfo
+import cn.a10miaomiao.bilidown.shizuku.util.RemoteServiceUtil
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -19,6 +20,7 @@ import java.io.File
 class BiliDownFile(
     val context: Context,
     val packageName: String,
+    val enabledShizuku: Boolean,
 ) {
 
     private val TAG = "BiliDownFile"
@@ -27,33 +29,31 @@ class BiliDownFile(
     var path = ""
     var list = emptyList<String>()
 
-    init {
-//        val dir = File(getDownloadPath())
-//        path = dir.absolutePath
-//        if (dir.isDirectory) {
-//            list = dir.listFiles()
-//                .filter { it.isDirectory }
-//                .map { it.name }
-//        }
-//        Log.d("BiliDownFile", dir.isDirectory.toString())
-//        Log.d("BiliDownFile", list.toString())
-    }
-
     fun canRead(): Boolean {
+        if (enabledShizuku) {
+            return true
+        }
         val downloadDir = createMiaoFile(DIR_DOWNLOAD)
         return downloadDir.canRead()
     }
 
-    fun readDownloadList(): List<BiliDownloadEntryAndPathInfo> {
+    suspend fun readDownloadList(): List<BiliDownloadEntryAndPathInfo> {
         try {
             val downloadDir = createMiaoFile(DIR_DOWNLOAD)
             val list = mutableListOf<BiliDownloadEntryAndPathInfo>()
-            downloadDir.listFiles()
-                .filter { it.isDirectory }
-                .forEach {
-                    Log.d(TAG, it.path)
-                    list.addAll(readDownloadDirectory(it))
-                }
+            MiaoLog.debug { enabledShizuku.toString() }
+            if (enabledShizuku) {
+                MiaoLog.debug { downloadDir.path }
+                val userService = RemoteServiceUtil.getUserService()
+                list.addAll(userService.readDownloadList(downloadDir.path))
+            } else {
+                downloadDir.listFiles()
+                    .filter { it.isDirectory }
+                    .forEach {
+                        Log.d(TAG, it.path)
+                        list.addAll(readDownloadDirectory(it))
+                    }
+            }
             return list.reversed()
         } catch (e: Exception) {
             Log.d(TAG, "读取失败")
@@ -63,7 +63,11 @@ class BiliDownFile(
 //        downloadList = list.reversed().toMutableList()
     }
 
-    fun readDownloadDirectory(dir: MiaoFile): List<BiliDownloadEntryAndPathInfo>{
+    suspend fun readDownloadDirectory(dir: MiaoFile): List<BiliDownloadEntryAndPathInfo> {
+        if (enabledShizuku) {
+            val userService = RemoteServiceUtil.getUserService()
+            return userService.readDownloadDirectory(dir.path)
+        }
         if (!dir.exists() || !dir.isDirectory) {
             return emptyList()
         }
@@ -106,8 +110,8 @@ class BiliDownFile(
 
     private fun createMiaoFile(
         dirName: String,
-    ): MiaoFile{
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {  // 10以上
+    ): MiaoFile {
+        if (!enabledShizuku && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {  // 10以上
             return MiaoDocumentFile(
                 context,
                 getDocumentFileId(),
@@ -115,7 +119,7 @@ class BiliDownFile(
             )
         }
         var file = File(getExternalDir(), dirName)
-        if (!file.exists()) {
+        if (!enabledShizuku && !file.exists()) {
             file.mkdir()
         }
         return MiaoJavaFile(file)

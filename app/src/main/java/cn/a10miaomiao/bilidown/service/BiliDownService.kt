@@ -9,10 +9,13 @@ import android.util.Log
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import androidx.room.Room
+import cn.a10miaomiao.bilidown.common.CommandUtil
 import cn.a10miaomiao.bilidown.common.file.MiaoDocumentFile
 import cn.a10miaomiao.bilidown.db.AppDatabase
 import cn.a10miaomiao.bilidown.db.dao.OutRecord
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryInfo
+import cn.a10miaomiao.bilidown.shizuku.service.UserService
+import cn.a10miaomiao.bilidown.shizuku.util.RemoteServiceUtil
 import io.microshow.rxffmpeg.RxFFmpegCommandList
 import io.microshow.rxffmpeg.RxFFmpegInvoke
 import kotlinx.coroutines.CoroutineScope
@@ -40,7 +43,7 @@ class BiliDownService :
         val instance get() = _instance
         val status = MutableStateFlow<Status>(Status.InIdle)
 
-        suspend fun getService(context: Context): BiliDownService{
+        suspend fun getService(context: Context): BiliDownService {
             _instance?.let { return it }
             startService(context)
             return channel.receive().also {
@@ -59,6 +62,8 @@ class BiliDownService :
     private var job: Job = Job()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.IO + job
+
+    private val myProgressCallback = MyProgressCallback(this)
 
     override fun onCreate() {
         super.onCreate()
@@ -82,8 +87,8 @@ class BiliDownService :
     suspend fun exportBiliVideo(
         entryDirPath: String,
         outFile: File,
-    ) : Boolean{
-
+        enabledShizuku: Boolean,
+    ): Boolean {
         if (status.value != Status.InIdle && status.value !is Status.Error) {
             toast("有视频正在导出中，请稍后再试")
             return false
@@ -95,9 +100,27 @@ class BiliDownService :
             return false
         }
 
-        if(entryDirPath.startsWith("content:")) {
+        // 使用Shizuku
+        if (enabledShizuku) {
+            val shizukuUserService = RemoteServiceUtil.getUserService()
+            val errorMessage = shizukuUserService.exportBiliVideo(
+                entryDirPath,
+                outFile.path,
+                myProgressCallback,
+            )
+            if (errorMessage != null) {
+                toast(errorMessage)
+                return false
+            }
+            return true
+        }
+
+        // 使用DocumentFile
+        if (entryDirPath.startsWith("content:")) {
             return copyAndExportBiliVideo(entryDirPath, outFile)
         }
+
+        // 使用Java File API正常导出
         val entryDirFile = File(entryDirPath)
         val entryJsonFile = File(entryDirPath, "entry.json")
         val json = Json { ignoreUnknownKeys = true }
@@ -196,7 +219,7 @@ class BiliDownService :
     suspend fun copyAndExportBiliVideo(
         entryDirPath: String,
         outFile: File,
-    ) : Boolean{
+    ): Boolean {
         val entryDirFile = DocumentFile.fromTreeUri(this, Uri.parse(entryDirPath))!!
         val entryJsonFile = MiaoDocumentFile(this, entryDirFile, "/entry.json")
         val json = Json { ignoreUnknownKeys = true }
@@ -310,8 +333,8 @@ class BiliDownService :
             )
             launch {
                 try {
-                    val tempVideoFile = File(getTempPath(),"video.m4s")
-                    val tempAudioFile = File(getTempPath(),"audio.m4s")
+                    val tempVideoFile = File(getTempPath(), "video.m4s")
+                    val tempAudioFile = File(getTempPath(), "audio.m4s")
                     videoFile.copyToTemp(tempVideoFile)
                     audioFile.copyToTemp(tempAudioFile)
                     status.value = Status.InProgress(
@@ -383,19 +406,19 @@ class BiliDownService :
         audioFile: File,
         outFile: File,
     ) {
-        if (!outFile.parentFile.exists()){
-            outFile.parentFile.mkdir()
+        if (!outFile.parentFile!!.exists()) {
+            outFile.parentFile!!.mkdir()
         }
         val commands = RxFFmpegCommandList().apply {
             append("-i")
-            append(videoFile.path)
+            append(videoFile.absolutePath)
             append("-i")
-            append(audioFile.path)
+            append(audioFile.absolutePath)
             append("-c:v")
             append("copy")
             append("-strict")
             append("experimental")
-            append(outFile.path)
+            append(outFile.absolutePath)
         }.build()
         //开始执行FFmpeg命令
         val myRxFFmpegSubscriber = object : MyRxFFmpegSubscriber(
@@ -421,26 +444,32 @@ class BiliDownService :
             .subscribe(myRxFFmpegSubscriber)
     }
 
-    private fun  mergerVideos(
+    private fun mergerVideos(
         videoFiles: List<File>,
         outFile: File,
     ) {
-        val ffTxtFile = File(getTempPath(),"ff.txt")
+        if (!outFile.parentFile!!.exists()) {
+            outFile.parentFile!!.mkdir()
+        }
+        val ffTxtFile = File(getTempPath(), ".ff.txt")
+        if (ffTxtFile.exists() && ffTxtFile.isDirectory) {
+            ffTxtFile.deleteRecursively()
+            ffTxtFile.delete()
+        }
         val ffTxtContent = videoFiles.map {
-            file -> "file '${file.path}'"
+                file -> "file ${CommandUtil.filePath(file)}"
         }.joinToString("\n")
         ffTxtFile.writeText(ffTxtContent)
-
         val commands = RxFFmpegCommandList().apply {
             append("-f")
             append("concat")
             append("-safe")
             append("0")
             append("-i")
-            append(ffTxtFile.path)
+            append(ffTxtFile.absolutePath)
             append("-c")
             append("copy")
-            append(outFile.path)
+            append(outFile.absolutePath)
         }.build()
         //开始执行FFmpeg命令
         val myRxFFmpegSubscriber = object : MyRxFFmpegSubscriber() {
@@ -482,6 +511,17 @@ class BiliDownService :
             updateTime = currentTime,
         )
         appDatabase.outRecordDao().insertAll(task)
+    }
+
+    fun tryAddTask(
+        entryDirPath: String,
+        outFilePath: String,
+        title: String,
+        cover: String,
+    ) {
+        launch {
+            addTask(entryDirPath, outFilePath, title, cover)
+        }
     }
 
     suspend fun getTaskList(): List<OutRecord> {
@@ -548,21 +588,21 @@ class BiliDownService :
             override val progress: Float,
 //            val videoFile: MiaoDocumentFile,
 //            val audioFile: MiaoDocumentFile,
-        ): Status()
+        ) : Status()
 
         data class Copying(
             override val entryDirPath: String,
             override val name: String,
             override val cover: String,
             override val progress: Float,
-        ): Status()
+        ) : Status()
 
         data class InProgress(
             override val entryDirPath: String,
             override val name: String,
             override val cover: String,
             override val progress: Float,
-        ): Status()
+        ) : Status()
 
         data class Error(
             override val entryDirPath: String,
@@ -570,7 +610,7 @@ class BiliDownService :
             override val cover: String,
             override val progress: Float,
             val message: String,
-        ): Status() {
+        ) : Status() {
             constructor(
                 status: Status,
                 message: String

@@ -193,6 +193,7 @@ fun BiliDownApp(
                 }
 
                 composable(BiliDownScreen.AddApp.route) { AddAppPage(navController) }
+                composable(BiliDownScreen.About.route) { AboutPage(navController) }
             }
         }
     }

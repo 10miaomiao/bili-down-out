@@ -19,6 +19,7 @@ import cn.a10miaomiao.bilidown.entity.DownloadInfo
 import cn.a10miaomiao.bilidown.entity.DownloadItemInfo
 import cn.a10miaomiao.bilidown.entity.DownloadType
 import cn.a10miaomiao.bilidown.service.BiliDownService
+import cn.a10miaomiao.bilidown.shizuku.localShizukuPermission
 import cn.a10miaomiao.bilidown.ui.BiliDownScreen
 import cn.a10miaomiao.bilidown.ui.components.DownloadDetailItem
 import cn.a10miaomiao.bilidown.ui.components.DownloadListItem
@@ -43,6 +44,7 @@ fun DownloadDetailPagePresenter(
     context: Context,
     packageName: String,
     dirPath: String,
+    enabledShizuku: Boolean,
     navController: NavHostController,
     action: Flow<DownloadDetailPageAction>,
 ): DownloadDetailPageState {
@@ -53,7 +55,7 @@ fun DownloadDetailPagePresenter(
         mutableStateOf("")
     }
     LaunchedEffect(packageName, dirPath) {
-        val biliDownFile = BiliDownFile(context, packageName)
+        val biliDownFile = BiliDownFile(context, packageName, enabledShizuku)
 //        val list = mutableListOf<DownloadInfo>()
         val dirFile = if (dirPath.startsWith("content://")) {
             MiaoDocumentFile(
@@ -143,6 +145,7 @@ fun DownloadDetailPagePresenter(
                 val isSuccess = biliDownService.exportBiliVideo(
                     it.entryDirPath,
                     it.outFile.file,
+                    enabledShizuku,
                 )
                 if (isSuccess) {
                     navController.navigate(BiliDownScreen.Progress.route) {
@@ -169,8 +172,11 @@ fun DownloadDetailPage(
     dirPath: String,
 ) {
     val context = LocalContext.current
-    val (state, channel) = rememberPresenter(listOf(packageName, dirPath)) {
-        DownloadDetailPagePresenter(context, packageName, dirPath, navController, it)
+    val shizukuPermission = localShizukuPermission()
+    val shizukuPermissionState = shizukuPermission.collectState()
+    val enabledShizuku = shizukuPermissionState.isEnabled
+    val (state, channel) = rememberPresenter(listOf(packageName, dirPath, enabledShizuku)) {
+        DownloadDetailPagePresenter(context, packageName, dirPath, enabledShizuku, navController, it)
     }
     var selectedItem by remember {
         mutableStateOf<DownloadItemInfo?>(null)
