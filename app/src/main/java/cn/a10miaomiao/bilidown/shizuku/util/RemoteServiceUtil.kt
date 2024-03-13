@@ -20,6 +20,7 @@ object RemoteServiceUtil {
     private var mUserService: IUserService? = null
 
     suspend fun getUserService(): IUserService{
+        MiaoLog.debug { "getUserService" }
         mUserService?.let { return it }
         bindUserService()
         return mChannel.receive()
@@ -28,6 +29,7 @@ object RemoteServiceUtil {
 
     private val userServiceConnection: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(componentName: ComponentName, binder: IBinder?) {
+            MiaoLog.debug { "onServiceConnected" }
             val res = StringBuilder()
             res.append("onServiceConnected: ").append(componentName.className).append('\n')
             if (binder != null && binder.pingBinder()) {
@@ -38,6 +40,7 @@ object RemoteServiceUtil {
                     e.printStackTrace()
                     res.append(Log.getStackTraceString(e))
                 }
+                service.doSomething()
                 mUserService = service
                 mChannel.trySend(service)
             } else {
@@ -47,6 +50,7 @@ object RemoteServiceUtil {
         }
 
         override fun onServiceDisconnected(componentName: ComponentName) {
+            MiaoLog.debug { "onServiceDisconnected" }
             mUserService = null
         }
     }
@@ -56,14 +60,14 @@ object RemoteServiceUtil {
             BuildConfig.APPLICATION_ID,
             UserService::class.java.name
         )
-    ).apply {
-        daemon(false)
-        processNameSuffix("service")
-        debuggable(BuildConfig.DEBUG)
-        version(BuildConfig.VERSION_CODE)
-    }
+    )
+        .daemon(false)
+        .processNameSuffix("service")
+        .debuggable(BuildConfig.DEBUG)
+        .version(BuildConfig.VERSION_CODE)
 
     private fun bindUserService() {
+        MiaoLog.debug { "bindUserService" }
         val res = java.lang.StringBuilder()
         try {
             if (Shizuku.getVersion() < 10) {
@@ -79,6 +83,7 @@ object RemoteServiceUtil {
     }
 
     private fun unbindUserService() {
+        MiaoLog.debug { "unbindUserService" }
         val res = java.lang.StringBuilder()
         try {
             if (Shizuku.getVersion() < 10) {

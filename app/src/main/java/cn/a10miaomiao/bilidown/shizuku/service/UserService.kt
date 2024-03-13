@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.annotation.Keep
 import cn.a10miaomiao.bilidown.callback.ProgressCallback
 import cn.a10miaomiao.bilidown.common.CommandUtil
+import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryAndPathInfo
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryInfo
 import cn.a10miaomiao.bilidown.entity.VideoOutInfo
@@ -67,6 +68,7 @@ class UserService: IUserService.Stub, CoroutineScope {
 
     @Throws(RemoteException::class)
     override fun doSomething(): String {
+        Log.i("UserService", "doSomething," + "pid=" + Os.getpid() + ", uid=" + Os.getuid())
         return "pid=" + Os.getpid() + ", uid=" + Os.getuid()
     }
 
@@ -75,12 +77,14 @@ class UserService: IUserService.Stub, CoroutineScope {
         if (path.isNullOrBlank()) {
             return mutableListOf()
         }
+        MiaoLog.debug { "readDownloadList(${path})" }
         val dir = File(path)
         val list = mutableListOf<BiliDownloadEntryAndPathInfo>()
         if (dir.exists() && dir.isDirectory) {
             dir.listFiles()
                 ?.filter { it.isDirectory }
                 ?.forEach {
+                    MiaoLog.debug { it.path }
                     list.addAll(readDownloadDirectory(it.path))
                 }
         }

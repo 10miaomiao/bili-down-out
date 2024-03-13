@@ -7,7 +7,7 @@ import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import app.cash.molecule.RecompositionClock
+import app.cash.molecule.RecompositionMode
 import app.cash.molecule.launchMolecule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,13 +26,13 @@ private class PresenterViewModel<T>(
     body: @Composable () -> T,
 ) : ViewModel() {
     private val dispatcher = providePlatformDispatcher()
-    private val clock = if (dispatcher[MonotonicFrameClock] == null) {
-        RecompositionClock.Immediate
+    private val mode = if (dispatcher[MonotonicFrameClock] == null) {
+        RecompositionMode.Immediate
     } else {
-        RecompositionClock.ContextClock
+        RecompositionMode.ContextClock
     }
     private val scope = CoroutineScope(dispatcher)
-    val state = scope.launchMolecule(clock, body)
+    val state = scope.launchMolecule(mode, body = body)
 
     override fun onCleared() {
         scope.cancel()

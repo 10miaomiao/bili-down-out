@@ -1,0 +1,102 @@
+[versions]
+kotlin = "1.9.22"
+
+androidx-core = "1.12.0"
+androidx-activity = "1.8.2"
+compose = "1.6.3"
+compose-bom = "2024.02.02"
+navigation = "2.7.7"
+lifecycle = "2.7.0"
+documentfile="1.0.1"
+datastore = "1.0.0"
+room = "2.6.1"
+
+coil = "2.6.0"
+qrose = "1.0.0-beta3" # QrCode for compose https://github.com/alexzhirkevich/qrose
+okhttp = "4.12.0"
+gson = "2.10.1"
+grpc = "1.62.2"
+kotlin-coroutine-android = "1.8.0"
+androidx-browser = "1.8.0"
+protoc = "3.12.0"
+serialization = "1.6.2"
+precompose = "1.6.0-rc02"
+shizuku = "13.1.5"
+rxffmpeg = "4.9.0"
+molecule = "1.4.1"
+
+# test
+junit = "4.+"
+androidx-test-junit = "1.1.5"
+androidx-test-espresso = "3.5.1"
+
+# plugins
+android-plugin = "8.3.0"
+protobuf-plugin = "0.9.4"
+ksp-plugin = "1.9.22-1.0.17"
+
+[libraries]
+# androidx
+androidx-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core" }
+androidx-activity-core = { group = "androidx.activity", name = "activity", version.ref = "androidx-activity" }
+androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "androidx-activity" }
+androidx-activity-compose  = { group = "androidx.activity", name = "activity-compose", version.ref = "androidx-activity" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref="documentfile" }
+androidx-datastoree-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref="datastore" }
+androidx-browser  = { group = "androidx.browser", name = "browser", version.ref = "androidx-browser" }
+androidx-lifecycle-rt-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+
+# compose
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
+compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+compose-ui-core = { group = "androidx.compose.ui", name = "ui" }
+compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+compose-material-core = { group = "androidx.compose.material", name = "material" }
+compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+compose-material3-core  = { group = "androidx.compose.material3", name = "material3" }
+compose-material3-window-size  = { group = "androidx.compose.material3", name = "material3-window-size-class" }
+
+
+ # 3rd party compose
+precompose-core = { group = "moe.tlaster", name = "precompose", version.ref = "precompose" }
+precompose-viewmodel = { group = "moe.tlaster", name = "precompose-viewmodel", version.ref = "precompose" }
+molecule-rt = { group = "app.cash.molecule", name = "molecule-runtime", version.ref = "molecule"}
+coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
+coil-compose  = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+qrose = { group = "io.github.alexzhirkevich", name = "qrose", version.ref = "qrose" }
+
+# room
+room-rt = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
+
+# serde
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+okhttp3 = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+grpc-protobuf-lite = { group = "io.grpc", name = "grpc-protobuf-lite", version.ref = "grpc" }
+grpc-stub = { group = "io.grpc", name = "grpc-stub", version.ref = "grpc" }
+protoc = { group = "com.google.protobuf", name = "protoc", version.ref = "protoc" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref="serialization" }
+rxffmpeg = { group = "com.github.microshow", name = "RxFFmpeg", version.ref = "rxffmpeg" }
+shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
+shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
+
+# androidx
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlin-coroutine-android" }
+
+# test
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-test-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-junit" }
+androidx-test-espresso = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidx-test-espresso" }
+compose-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "compose" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "android-plugin" }
+android-library = { id = "com.android.library", version.ref = "android-plugin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp-plugin" }
+protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
+kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }

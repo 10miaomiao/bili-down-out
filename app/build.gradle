@@ -10,21 +10,20 @@ android {
     namespace 'cn.a10miaomiao.bilidown'
     compileSdk 34
 
+    boolean isReleaseTask = gradle.startParameter.taskNames.any { it.contains("Release") }
+
     defaultConfig {
         applicationId "cn.a10miaomiao.bilidown"
         minSdk 21
         targetSdk 34
-        versionCode 3
-        versionName "0.3 beta"
+        versionCode 99
+        versionName "0.4 beta"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary true
         }
 
-        ndk {
-            abiFilters "armeabi-v7a","arm64-v8a","x86","x86_64"
-        }
     }
 
     Properties props = new Properties()
@@ -57,56 +56,60 @@ android {
         aidl true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion '1.4.3'
+        kotlinCompilerExtensionVersion "1.5.10"
     }
     packagingOptions {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
     }
+
+    splits {
+        if (!isReleaseTask) {
+            android.defaultConfig.ndk { abiFilters "arm64-v8a", "x86_64" }
+        }
+        abi {
+            reset()
+            enable isReleaseTask
+            include "armeabi-v7a","arm64-v8a","x86","x86_64"
+            universalApk false
+        }
+    }
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.7.0'
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.5.1'
+    implementation(libs.androidx.ktx)
+    implementation(libs.androidx.lifecycle.rt.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.documentfile)
+    implementation(libs.androidx.datastoree.preferences)
 
-    implementation 'androidx.activity:activity-compose:1.3.1'
-    implementation "androidx.compose.ui:ui:$compose_version"
-    implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
-    implementation 'androidx.compose.material3:material3-android:1.2.1'
-    implementation 'androidx.documentfile:documentfile:1.0.1'
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui.core)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material.core)
+    implementation(libs.compose.material3.core)
+    implementation(libs.compose.material3.window.size)
+    implementation(libs.androidx.navigation.compose)
 
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
-    androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
-    debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
-    debugImplementation "androidx.compose.ui:ui-test-manifest:$compose_version"
-    def nav_version = "2.7.3"
-    def precompose_version = "1.5.0-beta01"
-    def accompanist_pager_version = "0.33.2-alpha"
-    implementation("androidx.navigation:navigation-compose:$nav_version")
+    implementation(libs.coil.compose)
+    implementation(libs.precompose.core)
+    implementation(libs.precompose.viewmodel)
+    implementation(libs.molecule.rt)
 
-    api("moe.tlaster:precompose:$precompose_version")
-    api("moe.tlaster:precompose-viewmodel:$precompose_version")
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation(libs.room.rt)
+    implementation(libs.room.ktx)
+    annotationProcessor(libs.room.compiler)
+    ksp(libs.room.compiler)
 
-    implementation("io.coil-kt:coil-compose:2.2.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
-    implementation("app.cash.molecule:molecule-runtime:0.4.0")
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.rxffmpeg)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
 
-//    implementation "com.google.accompanist:accompanist-pager:$accompanist_pager_version"
-    implementation "com.google.accompanist:accompanist-pager-indicators:$accompanist_pager_version"
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.junit)
+//    androidTestImplementation(libs.androidx.test.espresso)
+    androidTestImplementation(libs.compose.test.junit4)
 
-    implementation 'com.github.microshow:RxFFmpeg:4.9.0'
-
-    def room_version = "2.5.0"
-    implementation("androidx.room:room-runtime:$room_version")
-    implementation("androidx.room:room-ktx:$room_version")
-    annotationProcessor("androidx.room:room-compiler:$room_version")
-    ksp("androidx.room:room-compiler:$room_version")
-
-    def shizuku_version = "13.1.5"
-    implementation "dev.rikka.shizuku:api:$shizuku_version"
-    implementation "dev.rikka.shizuku:provider:$shizuku_version"
 }

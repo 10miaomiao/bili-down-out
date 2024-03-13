@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.view.View
+import androidx.activity.ComponentActivity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -24,7 +25,7 @@ import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuProvider.MANAGER_APPLICATION_ID
 
 class ShizukuPermission(
-    val activity: FragmentActivity,
+    val activity: ComponentActivity,
 ): Shizuku.OnRequestPermissionResultListener
     , Shizuku.OnBinderReceivedListener
     , Shizuku.OnBinderDeadListener {
