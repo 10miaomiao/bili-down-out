@@ -37,20 +37,19 @@ fun FileNameInputDialog(
         }
     }
 
-    val handleConfirm = remember(onConfirm) {
-        {
-            val name = value.text + ".mp4"
-            if (name.isBlank()) {
-                errorText = "文件名不能为空"
+    fun handleConfirm() {
+        val name = value.text + ".mp4"
+        if (name.isBlank()) {
+            errorText = "文件名不能为空"
+        } else if (name.indexOf(' ') > 0) {
+            errorText = "文件名不能含有格"
+        } else {
+            val outFile = BiliDownOutFile(name)
+            if (outFile.exists()) {
+                errorText = "文件已存在"
             } else {
-                val outFile = BiliDownOutFile(name)
-                if (outFile.exists()) {
-                    errorText = "文件已存在"
-                } else {
-                    onConfirm(outFile)
-                }
+                onConfirm(outFile)
             }
-            Unit
         }
     }
 
@@ -87,7 +86,7 @@ fun FileNameInputDialog(
             },
             confirmButton = {
                 TextButton(
-                    onClick = handleConfirm,
+                    onClick = ::handleConfirm,
                 ) {
                     Text("确认导出")
                 }
