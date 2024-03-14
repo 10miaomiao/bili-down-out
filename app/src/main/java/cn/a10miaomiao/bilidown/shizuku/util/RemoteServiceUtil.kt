@@ -11,19 +11,27 @@ import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.service.BiliDownService
 import cn.a10miaomiao.bilidown.shizuku.IUserService
 import cn.a10miaomiao.bilidown.shizuku.service.UserService
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import rikka.shizuku.Shizuku
+import kotlin.jvm.Throws
 
 object RemoteServiceUtil {
 
-    private val mChannel = Channel<IUserService>()
+    private var mChannel = Channel<IUserService>()
     private var mUserService: IUserService? = null
 
+    @Throws(TimeoutCancellationException::class)
     suspend fun getUserService(): IUserService{
         MiaoLog.debug { "getUserService" }
         mUserService?.let { return it }
         bindUserService()
-        return mChannel.receive()
+        return withTimeout(10000) {
+            mChannel.receive()
+        }
     }
 
 

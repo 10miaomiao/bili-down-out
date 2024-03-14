@@ -2,9 +2,9 @@ name: Android CI
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
   build:
@@ -33,8 +33,13 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew assembleRelease
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
       with:
-        name: BiliDownOut-GitHub-Build-${{ github.sha }}.zip
-        path: app/build/outputs/apk/release/*.apk
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file:  app/build/outputs/apk/release/*.apk
+        tag: ${{ github.ref }}
+        release_name: ${{ github.ref }}
+        overwrite: true
+        file_glob: true
+        body: ""

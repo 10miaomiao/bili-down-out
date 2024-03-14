@@ -13,8 +13,10 @@ import cn.a10miaomiao.bilidown.common.file.MiaoJavaFile
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryAndPathInfo
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryInfo
 import cn.a10miaomiao.bilidown.shizuku.util.RemoteServiceUtil
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.json.Json
 import java.io.File
+import kotlin.jvm.Throws
 
 
 class BiliDownFile(
@@ -37,30 +39,24 @@ class BiliDownFile(
         return downloadDir.canRead()
     }
 
+    @Throws(TimeoutCancellationException::class)
     suspend fun readDownloadList(): List<BiliDownloadEntryAndPathInfo> {
-        try {
-            val downloadDir = createMiaoFile(DIR_DOWNLOAD)
-            val list = mutableListOf<BiliDownloadEntryAndPathInfo>()
-            MiaoLog.debug { enabledShizuku.toString() }
-            if (enabledShizuku) {
-                MiaoLog.debug { downloadDir.path }
-                val userService = RemoteServiceUtil.getUserService()
-                list.addAll(userService.readDownloadList(downloadDir.path))
-            } else {
-                downloadDir.listFiles()
-                    .filter { it.isDirectory }
-                    .forEach {
-                        Log.d(TAG, it.path)
-                        list.addAll(readDownloadDirectory(it))
-                    }
-            }
-            return list.reversed()
-        } catch (e: Exception) {
-            Log.d(TAG, "读取失败")
-            e.printStackTrace()
-            return emptyList()
+        val downloadDir = createMiaoFile(DIR_DOWNLOAD)
+        val list = mutableListOf<BiliDownloadEntryAndPathInfo>()
+        MiaoLog.debug { enabledShizuku.toString() }
+        if (enabledShizuku) {
+            MiaoLog.debug { downloadDir.path }
+            val userService = RemoteServiceUtil.getUserService()
+            list.addAll(userService.readDownloadList(downloadDir.path))
+        } else {
+            downloadDir.listFiles()
+                .filter { it.isDirectory }
+                .forEach {
+                    Log.d(TAG, it.path)
+                    list.addAll(readDownloadDirectory(it))
+                }
         }
-//        downloadList = list.reversed().toMutableList()
+        return list.reversed()
     }
 
     suspend fun readDownloadDirectory(dir: MiaoFile): List<BiliDownloadEntryAndPathInfo> {

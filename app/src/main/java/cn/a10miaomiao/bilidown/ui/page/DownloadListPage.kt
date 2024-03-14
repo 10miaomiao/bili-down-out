@@ -9,18 +9,25 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import cn.a10miaomiao.bilidown.R
 import cn.a10miaomiao.bilidown.common.BiliDownFile
 import cn.a10miaomiao.bilidown.common.BiliDownUtils
+import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.common.datastore.DataStoreKeys
 import cn.a10miaomiao.bilidown.common.datastore.rememberDataStorePreferencesFlow
 import cn.a10miaomiao.bilidown.common.lifecycle.LaunchedLifecycleObserver
@@ -36,6 +43,7 @@ import cn.a10miaomiao.bilidown.ui.components.DownloadListItem
 import cn.a10miaomiao.bilidown.ui.components.PermissionDialog
 import cn.a10miaomiao.bilidown.ui.components.SwipeToRefresh
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,6 +55,7 @@ data class DownloadListPageState(
     val canRead: Boolean,
     val loading: Boolean,
     val refreshing: Boolean,
+    val failMessage: String,
 )
 
 sealed class DownloadListPageAction {
@@ -67,7 +76,6 @@ fun DownloadListPagePresenter(
     action: Flow<DownloadListPageAction>,
 ): DownloadListPageState {
     var list by remember {
-//        mutableStateListOf<DownloadInfo>()
         mutableStateOf(emptyList<DownloadInfo>())
     }
     var path by remember {
@@ -75,6 +83,9 @@ fun DownloadListPagePresenter(
     }
     var canRead by remember {
         mutableStateOf(true)
+    }
+    var failMessage by remember {
+        mutableStateOf("")
     }
     var loading by remember {
         mutableStateOf(true)
@@ -87,88 +98,103 @@ fun DownloadListPagePresenter(
         packageName: String,
         enabledShizuku: Boolean,
     ) {
-        val biliDownFile = BiliDownFile(context, packageName, enabledShizuku)
-        canRead = biliDownFile.canRead()
-        if (!canRead) {
-            return
-        }
-        loading = true
-        val newList = mutableListOf<DownloadInfo>()
-        biliDownFile.readDownloadList().forEach {
-            val biliEntry = it.entry
-            var indexTitle = ""
-            var itemTitle = ""
-            var id = 0L
-            var cid = 0L
-            var epid = 0L
-            var type = DownloadType.VIDEO
-            val page = biliEntry.page_data
-            if (page != null) {
-                id = biliEntry.avid!!
-                indexTitle = page.download_title ?: page.part
-                cid = page.cid
-                type = DownloadType.VIDEO
-                itemTitle = page.part
+        try {
+            MiaoLog.debug { "getList(packageName:$packageName, enabledShizuku: $enabledShizuku)" }
+            val biliDownFile = BiliDownFile(context, packageName, enabledShizuku)
+            canRead = biliDownFile.canRead()
+            if (!canRead) {
+                return
             }
-            val ep = biliEntry.ep
-            val source = biliEntry.source
-            if (ep != null && source != null) {
-                id = biliEntry.season_id!!.toLong()
-                indexTitle = ep.index_title
-                epid = ep.episode_id
-                cid = source.cid
-                type = DownloadType.BANGUMI
-                itemTitle = if (ep.index_title.isNotBlank()) {
-                    ep.index_title
-                } else {
-                    ep.index
+            loading = true
+            failMessage = ""
+            val newList = mutableListOf<DownloadInfo>()
+            biliDownFile.readDownloadList().forEach {
+                val biliEntry = it.entry
+                var indexTitle = ""
+                var itemTitle = ""
+                var id = 0L
+                var cid = 0L
+                var epid = 0L
+                var type = DownloadType.VIDEO
+                val page = biliEntry.page_data
+                if (page != null) {
+                    id = biliEntry.avid!!
+                    indexTitle = page.download_title ?: page.part
+                    cid = page.cid
+                    type = DownloadType.VIDEO
+                    itemTitle = page.part
                 }
-            }
-            val item = DownloadItemInfo(
-                dir_path = it.entryDirPath,
-                media_type = biliEntry.media_type,
-                has_dash_audio = biliEntry.has_dash_audio,
-                is_completed = biliEntry.is_completed,
-                total_bytes = biliEntry.total_bytes,
-                downloaded_bytes = biliEntry.downloaded_bytes,
-                title = itemTitle,
-                cover = biliEntry.cover,
-                id = id,
-                type = type,
-                cid = cid,
-                epid = epid,
-                index_title = indexTitle,
-            )
-            val last = newList.lastOrNull()
-            if (last != null
-                && last.type == item.type
-                && last.id == item.id
-            ) {
-                if (last.is_completed && !item.is_completed) {
-                    last.is_completed = false
+                val ep = biliEntry.ep
+                val source = biliEntry.source
+                if (ep != null && source != null) {
+                    id = biliEntry.season_id!!.toLong()
+                    indexTitle = ep.index_title
+                    epid = ep.episode_id
+                    cid = source.cid
+                    type = DownloadType.BANGUMI
+                    itemTitle = if (ep.index_title.isNotBlank()) {
+                        ep.index_title
+                    } else {
+                        ep.index
+                    }
                 }
-                last.items.add(item)
-            } else {
-                newList.add(
-                    DownloadInfo(
-                        dir_path = it.pageDirPath,
-                        media_type = biliEntry.media_type,
-                        has_dash_audio = biliEntry.has_dash_audio,
-                        is_completed = biliEntry.is_completed,
-                        total_bytes = biliEntry.total_bytes,
-                        downloaded_bytes = biliEntry.downloaded_bytes,
-                        title = biliEntry.title,
-                        cover = biliEntry.cover,
-                        cid = cid,
-                        id = id,
-                        type = type,
-                        items = mutableListOf(item)
-                    )
+                val item = DownloadItemInfo(
+                    dir_path = it.entryDirPath,
+                    media_type = biliEntry.media_type,
+                    has_dash_audio = biliEntry.has_dash_audio,
+                    is_completed = biliEntry.is_completed,
+                    total_bytes = biliEntry.total_bytes,
+                    downloaded_bytes = biliEntry.downloaded_bytes,
+                    title = itemTitle,
+                    cover = biliEntry.cover,
+                    id = id,
+                    type = type,
+                    cid = cid,
+                    epid = epid,
+                    index_title = indexTitle,
                 )
+                val last = newList.lastOrNull()
+                if (last != null
+                    && last.type == item.type
+                    && last.id == item.id
+                ) {
+                    if (last.is_completed && !item.is_completed) {
+                        last.is_completed = false
+                    }
+                    last.items.add(item)
+                } else {
+                    newList.add(
+                        DownloadInfo(
+                            dir_path = it.pageDirPath,
+                            media_type = biliEntry.media_type,
+                            has_dash_audio = biliEntry.has_dash_audio,
+                            is_completed = biliEntry.is_completed,
+                            total_bytes = biliEntry.total_bytes,
+                            downloaded_bytes = biliEntry.downloaded_bytes,
+                            title = biliEntry.title,
+                            cover = biliEntry.cover,
+                            cid = cid,
+                            id = id,
+                            type = type,
+                            items = mutableListOf(item)
+                        )
+                    )
+                }
             }
+            list = newList.toList()
+        } catch (e: TimeoutCancellationException) {
+            e.printStackTrace()
+            failMessage = if (enabledShizuku) {
+                "连接Shizhuku服务超时，建议您尝试停止并重新激活Shizhuku！"
+            } else {
+                "读取缓存列表超时！"
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            failMessage = "读取列表异常：" + (e.message ?: e.toString())
+        } finally {
+            loading = false
         }
-        list = newList.toList()
-        loading = false
     }
 
     action.collectAction {
@@ -194,6 +220,7 @@ fun DownloadListPagePresenter(
         canRead,
         loading,
         refreshing,
+        failMessage,
     )
 }
 
@@ -221,9 +248,8 @@ fun DownloadListPage(
         shizukuPermissionState.isEnabled,
     ) {
         if (state.list.isEmpty()
-            && ((permissionState.isGranted && permissionState.isExternalStorage)
-               || (shizukuPermissionState.isRunning && shizukuPermissionState.isEnabled)
-           )
+            && permissionState.isGranted
+            && permissionState.isExternalStorage
         ) {
             channel.send(
                 DownloadListPageAction.GetList(
@@ -269,66 +295,91 @@ fun DownloadListPage(
             )
         },
     ) {
-        if (!permissionState.isGranted || !permissionState.isExternalStorage) {
+       if (state.list.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (permissionState.isGranted) {
-                    Text(text = "请授予所有文件的存储权限")
+                if (state.loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(40.dp),
+                        strokeWidth = 4.dp,
+                    )
                     Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = {
-                            storagePermission.requestPermissions(::resultCallBack)
-                        }
+                    Text(
+                        "正在读取列表",
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                } else if (!permissionState.isGranted || !permissionState.isExternalStorage) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(text = "授予所有文件的权限")
+                        if (permissionState.isGranted) {
+                            Text(text = "请授予所有文件的存储权限")
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Button(
+                                onClick = {
+                                    storagePermission.requestPermissions(::resultCallBack)
+                                }
+                            ) {
+                                Text(text = "授予所有文件的权限")
+                            }
+                        } else {
+                            Text(text = "请授予存储权限")
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Button(
+                                onClick = {
+                                    storagePermission.requestPermissions(::resultCallBack)
+                                }
+                            ) {
+                                Text(text = "授予权限")
+                            }
+                        }
                     }
-                } else {
-                    Text(text = "请授予存储权限")
+                } else if (!state.canRead) {
+                    Text(text = "请授予文件夹权限")
                     Spacer(modifier = Modifier.height(20.dp))
                     Button(
                         onClick = {
-                            storagePermission.requestPermissions(::resultCallBack)
+                            val biliDownFile = BiliDownFile(context, packageName, shizukuPermissionState.isEnabled)
+                            biliDownFile.startFor(2)
                         }
                     ) {
                         Text(text = "授予权限")
                     }
-                }
-            }
-        } else if (!state.canRead) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(text = "请授予文件夹权限")
-                Spacer(modifier = Modifier.height(20.dp))
-                Button(
-                    onClick = {
-                        val biliDownFile = BiliDownFile(context, packageName, shizukuPermissionState.isEnabled)
-                        biliDownFile.startFor(2)
+                    TextButton(
+                        onClick = {
+                            navController.navigate(BiliDownScreen.More.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    ) {
+                        Text(text = "或使用Shizhuku")
                     }
-                ) {
-                    Text(text = "授予权限")
+                } else if (state.failMessage.isNotBlank()) {
+                    Text(
+                        text = state.failMessage,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(20.dp)
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_movie_pay_area_limit),
+                        contentDescription = "空空如也",
+                        modifier = Modifier.size(200.dp, 200.dp)
+                    )
+                    Text(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        text = "空空如也",
+                    )
                 }
-            }
-        } else if (!state.loading && state.list.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_movie_pay_area_limit),
-                    contentDescription = "空空如也",
-                    modifier = Modifier.size(200.dp, 200.dp)
-                )
-                Text(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    text = "空空如也",
-                )
             }
         } else {
             LazyColumn(
