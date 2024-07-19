@@ -1,5 +1,6 @@
 package cn.a10miaomiao.bilidown.ui.components
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -53,6 +54,14 @@ fun FileNameInputDialog(
         }
     }
 
+    fun handleClearSpace() {
+        val text = value.text.replace(" ", "")
+        value = TextFieldValue(
+            text = text,
+            selection = TextRange(text.length)
+        )
+    }
+
     if (showInputDialog) {
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -92,10 +101,19 @@ fun FileNameInputDialog(
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = onDismiss,
-                ) {
-                    Text("取消")
+                Row() {
+                    if (" " in value.text) {
+                        TextButton(
+                            onClick = ::handleClearSpace,
+                        ) {
+                            Text("清除空格")
+                        }
+                    }
+                    TextButton(
+                        onClick = onDismiss,
+                    ) {
+                        Text("取消")
+                    }
                 }
             }
         )
