@@ -4,7 +4,7 @@ kotlin = "1.9.22"
 androidx-core = "1.12.0"
 androidx-activity = "1.8.2"
 compose = "1.6.3"
-compose-bom = "2024.02.02"
+compose-bom = "2024.06.00"
 navigation = "2.7.7"
 lifecycle = "2.7.0"
 documentfile="1.0.1"
@@ -55,7 +55,7 @@ compose-ui-core = { group = "androidx.compose.ui", name = "ui" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-material-core = { group = "androidx.compose.material", name = "material" }
 compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
-compose-material3-core  = { group = "androidx.compose.material3", name = "material3" }
+compose-material3-core  = { group = "androidx.compose.material3", name = "material3-android" }
 compose-material3-window-size  = { group = "androidx.compose.material3", name = "material3-window-size-class" }
 
 

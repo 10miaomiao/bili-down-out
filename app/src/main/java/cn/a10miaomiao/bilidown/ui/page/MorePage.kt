@@ -1,10 +1,12 @@
 package cn.a10miaomiao.bilidown.ui.page
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.Switch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -125,9 +127,9 @@ fun MorePage(
             desc = "当前版本：${state.versionName}",
             icon = Icons.Outlined.Info,
         ) {
-//            navController.navigate(BiliDownScreen.About.route) {
-//                launchSingleTop = true
-//            }
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.data = Uri.parse("https://github.com/10miaomiao/bili-down-out")
+            context.startActivity(intent)
         }
     }
 }
