@@ -82,10 +82,10 @@ fun DownloadDetailPagePresenter(
             val page = biliEntry.page_data
             if (page != null) {
                 id = biliEntry.avid!!
-                indexTitle = page.download_title ?: page.part
+                indexTitle = page.download_title ?: page.part ?: "${page.page}P"
                 cid = page.cid
                 type = DownloadType.VIDEO
-                itemTitle = page.part
+                itemTitle = biliEntry.title
             }
             val ep = biliEntry.ep
             val source = biliEntry.source
