@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,6 +48,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import rikka.shizuku.ShizukuProvider
 
 
 data class DownloadListPageState(
@@ -185,7 +187,7 @@ fun DownloadListPagePresenter(
         } catch (e: TimeoutCancellationException) {
             e.printStackTrace()
             failMessage = if (enabledShizuku) {
-                "连接Shizhuku服务超时，建议您尝试停止并重新激活Shizhuku！"
+                "连接Shizuku服务超时，建议您尝试停止并重新激活Shizuku！"
             } else {
                 "读取缓存列表超时！"
             }
@@ -279,6 +281,23 @@ fun DownloadListPage(
         }
     }
 
+    fun openShizuku() {
+        try {
+            val packageManager = context.packageManager
+            val intent = packageManager.getLaunchIntentForPackage(ShizukuProvider.MANAGER_APPLICATION_ID)
+            if (intent == null) {
+                Toast.makeText(context, "未找到Shizuku", Toast.LENGTH_LONG)
+                    .show()
+            } else {
+                context.startActivity(intent)
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Shizuku启动失败", Toast.LENGTH_LONG)
+                .show()
+            e.printStackTrace()
+        }
+    }
+
     PermissionDialog(
         showPermissionDialog = showPermissionDialog,
         isGranted = permissionState.isGranted,
@@ -361,7 +380,7 @@ fun DownloadListPage(
                             }
                         }
                     ) {
-                        Text(text = "或使用Shizhuku")
+                        Text(text = "或使用Shizuku")
                     }
                 } else if (state.failMessage.isNotBlank()) {
                     Text(
@@ -369,6 +388,13 @@ fun DownloadListPage(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(20.dp)
                     )
+                    if ("Shizuku" in state.failMessage) {
+                        TextButton(
+                            onClick = ::openShizuku,
+                        ) {
+                            Text(text = "跳转Shizuku")
+                        }
+                    }
                 } else {
                     Image(
                         painter = painterResource(id = R.drawable.ic_movie_pay_area_limit),
