@@ -2,39 +2,43 @@ package cn.a10miaomiao.bilidown.service
 
 import android.util.Log
 import cn.a10miaomiao.bilidown.common.MiaoLog
+import cn.a10miaomiao.bilidown.state.AppState
+import cn.a10miaomiao.bilidown.state.TaskStatus
 import io.microshow.rxffmpeg.RxFFmpegSubscriber
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 
 open class MyRxFFmpegSubscriber(
-//    private val status: MutableStateFlow<BiliDownService.Status>,
+    private val appState: AppState,
 //    private val tempPath: String,
 ) : RxFFmpegSubscriber() {
     private val TAG = "MyRxFFmpegSubscriber"
 
     override fun onFinish() {
-        BiliDownService.status.value = BiliDownService.Status.InIdle
+        appState.putTaskStatus(TaskStatus.InIdle)
     }
 
     override fun onProgress(progress: Int, progressTime: Long) {
-        val _status = BiliDownService.status.value
-        if (_status is BiliDownService.Status.InProgress) {
-            BiliDownService.status.value = _status.copy(
-                progress = progress.toFloat() / 100f
+        val taskStatus = appState.taskStatus.value
+        if (taskStatus is TaskStatus.InProgress) {
+            appState.putTaskStatus(
+                taskStatus.copy(
+                    progress = progress.toFloat() / 100f
+                )
             )
         }
         Log.d(TAG, "onProgress$progress $progressTime")
     }
 
     override fun onCancel() {
-        BiliDownService.status.value = BiliDownService.Status.InIdle
+        appState.putTaskStatus(TaskStatus.InIdle)
     }
 
     override fun onError(message: String) {
         MiaoLog.info { message }
-        BiliDownService.status.value = BiliDownService.Status.Error(
-            BiliDownService.status.value,
-            message,
-        )
+        appState.putTaskStatus(TaskStatus.Error(
+            appState.taskStatus.value,
+            message
+        ))
     }
 }

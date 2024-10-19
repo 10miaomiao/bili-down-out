@@ -30,6 +30,7 @@
 
     <!--requestLegacyExternalStorage属性仅针对安卓10-->
     <application
+        android:name=".BiliDownApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -39,7 +40,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.BiliDown"
         android:requestLegacyExternalStorage="true"
-        tools:targetApi="31">
+        android:enableOnBackInvokedCallback="true"
+        tools:targetApi="34">
         <activity
             android:name=".MainActivity"
             android:exported="true"

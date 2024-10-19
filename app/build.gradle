@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace 'cn.a10miaomiao.bilidown'
-    compileSdk 34
+    compileSdk 35
 
     boolean isReleaseTask = gradle.startParameter.taskNames.any { it.contains("Release") }
 
     defaultConfig {
         applicationId "cn.a10miaomiao.bilidown"
         minSdk 21
-        targetSdk 34
+        targetSdk 35
         versionCode 5
         versionName "0.5 beta"
 
@@ -90,7 +90,9 @@ dependencies {
     implementation(libs.compose.material.core)
     implementation(libs.compose.material3.core)
     implementation(libs.compose.material3.window.size)
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.navigation.compose) {
+        exclude group: 'androidx.compose.ui', module: 'ui-test-android'
+    }
 
     implementation(libs.coil.compose)
     implementation(libs.precompose.core)

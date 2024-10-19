@@ -12,7 +12,7 @@ import cn.a10miaomiao.bilidown.common.LocalStoragePermission
 import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.common.permission.StoragePermission
 import cn.a10miaomiao.bilidown.service.BiliDownService
-import cn.a10miaomiao.bilidown.ui.BiliDownApp
+import cn.a10miaomiao.bilidown.ui.MainComposeApp
 import cn.a10miaomiao.bilidown.shizuku.IUserService
 import cn.a10miaomiao.bilidown.shizuku.LocalShizukuPermission
 import cn.a10miaomiao.bilidown.shizuku.permission.ShizukuPermission
@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
                     LocalStoragePermission provides storagePermission,
                     LocalShizukuPermission provides shizukuPermission,
                 ) {
-                    BiliDownApp()
+                    MainComposeApp()
                 }
             }
         }

@@ -9,6 +9,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import androidx.room.Room
+import cn.a10miaomiao.bilidown.BiliDownApp
 import cn.a10miaomiao.bilidown.common.CommandUtil
 import cn.a10miaomiao.bilidown.common.file.MiaoDocumentFile
 import cn.a10miaomiao.bilidown.db.AppDatabase
@@ -16,6 +17,8 @@ import cn.a10miaomiao.bilidown.db.dao.OutRecord
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryInfo
 import cn.a10miaomiao.bilidown.shizuku.service.UserService
 import cn.a10miaomiao.bilidown.shizuku.util.RemoteServiceUtil
+import cn.a10miaomiao.bilidown.state.AppState
+import cn.a10miaomiao.bilidown.state.TaskStatus
 import io.microshow.rxffmpeg.RxFFmpegCommandList
 import io.microshow.rxffmpeg.RxFFmpegInvoke
 import kotlinx.coroutines.CoroutineScope
@@ -40,8 +43,7 @@ class BiliDownService :
         private val channel = Channel<BiliDownService>()
         private var _instance: BiliDownService? = null
 
-        val instance get() = _instance
-        val status = MutableStateFlow<Status>(Status.InIdle)
+//        val instance get() = _instance
 
         suspend fun getService(context: Context): BiliDownService {
             _instance?.let { return it }
@@ -58,12 +60,15 @@ class BiliDownService :
     }
 
     private lateinit var appDatabase: AppDatabase
+    private lateinit var appState: AppState
 
     private var job: Job = Job()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.IO + job
 
-    private val myProgressCallback = MyProgressCallback(this)
+    private val myProgressCallback by lazy {
+        MyProgressCallback(this@BiliDownService, appState)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -72,9 +77,15 @@ class BiliDownService :
             AppDatabase::class.java,
             "bili-down-out"
         ).build()
+        appState = (application as BiliDownApp).state
         job = Job()
         launch {
             channel.send(this@BiliDownService)
+            appState.taskStatus.collect {
+                if (it is TaskStatus.InIdle) {
+                    // 空闲状态，进行下一个任务
+                }
+            }
         }
     }
 
@@ -89,7 +100,8 @@ class BiliDownService :
         outFile: File,
         enabledShizuku: Boolean,
     ): Boolean {
-        if (status.value != Status.InIdle && status.value !is Status.Error) {
+        val taskStatus = appState.taskStatus.value
+        if (taskStatus != TaskStatus.InIdle && taskStatus !is TaskStatus.Error) {
             toast("有视频正在导出中，请稍后再试")
             return false
         }
@@ -138,11 +150,13 @@ class BiliDownService :
                 return false
             }
             // 直接复制mp4文件
-            status.value = Status.Copying(
-                name = entry.name,
-                entryDirPath = entryDirPath,
-                cover = entry.cover,
-                progress = 0f,
+            appState.putTaskStatus(
+                TaskStatus.Copying(
+                    name = entry.name,
+                    entryDirPath = entryDirPath,
+                    cover = entry.cover,
+                    progress = 0f,
+                )
             )
             launch {
                 copyFile(videoFile, outFile)
@@ -172,11 +186,13 @@ class BiliDownService :
                 toast("找不到视频文件：0.blv")
                 return false
             }
-            status.value = Status.InProgress(
-                name = entry.name,
-                entryDirPath = entryDirPath,
-                cover = entry.cover,
-                progress = 0f
+            appState.putTaskStatus(
+                TaskStatus.InProgress(
+                    name = entry.name,
+                    entryDirPath = entryDirPath,
+                    cover = entry.cover,
+                    progress = 0f
+                )
             )
             mergerVideos(
                 blvFiles,
@@ -191,22 +207,26 @@ class BiliDownService :
                 return false
             }
             if (!audioFile.exists()) {
-                status.value = Status.Copying(
-                    name = entry.name,
-                    entryDirPath = entryDirPath,
-                    cover = entry.cover,
-                    progress = 0f,
+                appState.putTaskStatus(
+                    TaskStatus.Copying(
+                        name = entry.name,
+                        entryDirPath = entryDirPath,
+                        cover = entry.cover,
+                        progress = 0f,
+                    )
                 )
                 launch {
                     copyFile(videoFile, outFile)
                 }
                 return true
             }
-            status.value = Status.InProgress(
-                name = entry.name,
-                entryDirPath = entryDirPath,
-                cover = entry.cover,
-                progress = 0f,
+            appState.putTaskStatus(
+                TaskStatus.InProgress(
+                    name = entry.name,
+                    entryDirPath = entryDirPath,
+                    cover = entry.cover,
+                    progress = 0f,
+                )
             )
             mergerVideoAndAudio(videoFile, audioFile, outFile)
             return true
@@ -236,11 +256,13 @@ class BiliDownService :
                 return false
             }
             // 直接复制mp4文件
-            status.value = Status.Copying(
-                name = entry.name,
-                entryDirPath = entryDirPath,
-                cover = entry.cover,
-                progress = 0f,
+            appState.putTaskStatus(
+                TaskStatus.Copying(
+                    name = entry.name,
+                    entryDirPath = entryDirPath,
+                    cover = entry.cover,
+                    progress = 0f,
+                )
             )
             launch {
                 copyFile(MiaoDocumentFile(this@BiliDownService, videoFile), outFile)
@@ -270,11 +292,13 @@ class BiliDownService :
                 toast("找不到视频文件：0.blv")
                 return false
             }
-            status.value = Status.CopyingToTemp(
-                name = entry.name,
-                entryDirPath = entryDirPath,
-                cover = entry.cover,
-                progress = 0f,
+            appState.putTaskStatus(
+                TaskStatus.CopyingToTemp(
+                    name = entry.name,
+                    entryDirPath = entryDirPath,
+                    cover = entry.cover,
+                    progress = 0f,
+                )
             )
             launch {
                 try {
@@ -283,20 +307,24 @@ class BiliDownService :
                         it.copyToTemp(tempF)
                         tempF
                     }
-                    status.value = Status.InProgress(
-                        name = entry.name,
-                        entryDirPath = entryDirPath,
-                        cover = entry.cover,
-                        progress = 0f
+                    appState.putTaskStatus(
+                        TaskStatus.InProgress(
+                            name = entry.name,
+                            entryDirPath = entryDirPath,
+                            cover = entry.cover,
+                            progress = 0f
+                        )
                     )
                     mergerVideos(
                         tempFiles,
                         outFile
                     )
                 } catch (e: Exception) {
-                    status.value = Status.Error(
-                        status.value,
-                        e.message ?: e.toString(),
+                    appState.putTaskStatus(
+                        TaskStatus.Error(
+                            appState.taskStatus.value,
+                            e.message ?: e.toString(),
+                        )
                     )
                     e.printStackTrace()
                 }
@@ -312,24 +340,28 @@ class BiliDownService :
             }
             if (!audioFile.exists()) {
                 // 直接复制
-                status.value = Status.Copying(
-                    name = entry.name,
-                    entryDirPath = entryDirPath,
-                    cover = entry.cover,
-                    progress = 0f,
+                appState.putTaskStatus(
+                    TaskStatus.Copying(
+                        name = entry.name,
+                        entryDirPath = entryDirPath,
+                        cover = entry.cover,
+                        progress = 0f,
+                    )
                 )
                 launch {
                     copyFile(videoFile, outFile)
                 }
                 return false
             }
-            status.value = Status.CopyingToTemp(
-                name = entry.name,
-                entryDirPath = entryDirPath,
-                cover = entry.cover,
-                progress = 0f,
-//                audioFile = audioFile,
-//                videoFile = videoFile,
+            appState.putTaskStatus(
+                TaskStatus.CopyingToTemp(
+                    name = entry.name,
+                    entryDirPath = entryDirPath,
+                    cover = entry.cover,
+                    progress = 0f,
+    //                audioFile = audioFile,
+    //                videoFile = videoFile,
+                )
             )
             launch {
                 try {
@@ -337,11 +369,13 @@ class BiliDownService :
                     val tempAudioFile = File(getTempPath(), "audio.m4s")
                     videoFile.copyToTemp(tempVideoFile)
                     audioFile.copyToTemp(tempAudioFile)
-                    status.value = Status.InProgress(
-                        name = entry.name,
-                        entryDirPath = entryDirPath,
-                        cover = entry.cover,
-                        progress = 0f
+                    appState.putTaskStatus(
+                        TaskStatus.InProgress(
+                            name = entry.name,
+                            entryDirPath = entryDirPath,
+                            cover = entry.cover,
+                            progress = 0f
+                        )
                     )
                     mergerVideoAndAudio(
                         tempVideoFile,
@@ -349,9 +383,11 @@ class BiliDownService :
                         outFile
                     )
                 } catch (e: Exception) {
-                    status.value = Status.Error(
-                        status.value,
-                        e.message ?: e.toString(),
+                    appState.putTaskStatus(
+                        TaskStatus.Error(
+                            appState.taskStatus.value,
+                            e.message ?: e.toString(),
+                        )
                     )
                     e.printStackTrace()
                 }
@@ -376,14 +412,14 @@ class BiliDownService :
         fileOutputStream.flush()
         fileOutputStream.close()
 
-        val currentStatus = status.value
-        addTask(
+        val currentStatus = appState.taskStatus.value
+        addOutRecord(
             currentStatus.entryDirPath,
             outFile.path,
             outFile.name,
             currentStatus.cover,
         )
-        status.value = Status.InIdle
+        appState.putTaskStatus(TaskStatus.InIdle)
     }
 
     private suspend fun copyFile(
@@ -391,14 +427,14 @@ class BiliDownService :
         outFile: File
     ) {
         inputFile.copyToTemp(outFile)
-        val currentStatus = status.value
-        addTask(
+        val currentStatus = appState.taskStatus.value
+        addOutRecord(
             currentStatus.entryDirPath,
             outFile.path,
             outFile.name,
             currentStatus.cover,
         )
-        status.value = Status.InIdle
+        appState.putTaskStatus(TaskStatus.InIdle)
     }
 
     private fun mergerVideoAndAudio(
@@ -422,12 +458,13 @@ class BiliDownService :
         }.build()
         //开始执行FFmpeg命令
         val myRxFFmpegSubscriber = object : MyRxFFmpegSubscriber(
+            appState,
 //            getTempPath()
         ) {
             override fun onFinish() {
-                val currentStatus = status.value
+                val currentStatus = appState.taskStatus.value
                 launch {
-                    addTask(
+                    addOutRecord(
                         currentStatus.entryDirPath,
                         outFile.path,
                         outFile.name,
@@ -472,11 +509,11 @@ class BiliDownService :
             append(outFile.absolutePath)
         }.build()
         //开始执行FFmpeg命令
-        val myRxFFmpegSubscriber = object : MyRxFFmpegSubscriber() {
+        val myRxFFmpegSubscriber = object : MyRxFFmpegSubscriber(appState) {
             override fun onFinish() {
-                val currentStatus = status.value
+                val currentStatus = appState.taskStatus.value
                 launch {
-                    addTask(
+                    addOutRecord(
                         currentStatus.entryDirPath,
                         outFile.path,
                         outFile.name,
@@ -493,7 +530,7 @@ class BiliDownService :
             .subscribe(myRxFFmpegSubscriber)
     }
 
-    private suspend fun addTask(
+    private suspend fun addOutRecord(
         entryDirPath: String,
         outFilePath: String,
         title: String,
@@ -513,14 +550,14 @@ class BiliDownService :
         appDatabase.outRecordDao().insertAll(task)
     }
 
-    fun tryAddTask(
+    fun tryAddOutRecord(
         entryDirPath: String,
         outFilePath: String,
         title: String,
         cover: String,
     ) {
         launch {
-            addTask(entryDirPath, outFilePath, title, cover)
+            addOutRecord(entryDirPath, outFilePath, title, cover)
         }
     }
 
@@ -571,57 +608,6 @@ class BiliDownService :
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
-    }
-
-    sealed class Status {
-        open val entryDirPath: String = ""
-        open val name: String = ""
-        open val cover: String = ""
-        open val progress = 0f
-
-        object InIdle : Status()
-
-        data class CopyingToTemp(
-            override val entryDirPath: String,
-            override val name: String,
-            override val cover: String,
-            override val progress: Float,
-//            val videoFile: MiaoDocumentFile,
-//            val audioFile: MiaoDocumentFile,
-        ) : Status()
-
-        data class Copying(
-            override val entryDirPath: String,
-            override val name: String,
-            override val cover: String,
-            override val progress: Float,
-        ) : Status()
-
-        data class InProgress(
-            override val entryDirPath: String,
-            override val name: String,
-            override val cover: String,
-            override val progress: Float,
-        ) : Status()
-
-        data class Error(
-            override val entryDirPath: String,
-            override val name: String,
-            override val cover: String,
-            override val progress: Float,
-            val message: String,
-        ) : Status() {
-            constructor(
-                status: Status,
-                message: String
-            ) : this(
-                status.entryDirPath,
-                status.name,
-                status.cover,
-                status.progress,
-                message
-            )
-        }
     }
 
 }

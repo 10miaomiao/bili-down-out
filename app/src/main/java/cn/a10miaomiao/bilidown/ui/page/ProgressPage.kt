@@ -27,12 +27,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
+import cn.a10miaomiao.bilidown.BiliDownApp
 import cn.a10miaomiao.bilidown.common.BiliDownOutFile
 import cn.a10miaomiao.bilidown.common.UrlUtil
 import cn.a10miaomiao.bilidown.common.molecule.collectAction
 import cn.a10miaomiao.bilidown.common.molecule.rememberPresenter
 import cn.a10miaomiao.bilidown.db.dao.OutRecord
 import cn.a10miaomiao.bilidown.service.BiliDownService
+import cn.a10miaomiao.bilidown.state.TaskStatus
 import cn.a10miaomiao.bilidown.ui.components.OutFolderDialog
 import cn.a10miaomiao.bilidown.ui.components.RecordItem
 import coil.compose.AsyncImage
@@ -44,7 +46,7 @@ import java.io.File
 
 
 data class ProgressPageState(
-    val status: BiliDownService.Status,
+    val status: TaskStatus,
     val recordList: List<OutRecord>,
 ) {
 }
@@ -68,18 +70,14 @@ fun ProgressPagePresenter(
     context: Context,
     action: Flow<ProgressPageAction>,
 ): ProgressPageState {
-    var status by remember {
-        mutableStateOf<BiliDownService.Status>(BiliDownService.Status.InIdle)
+    val appState = remember(context) {
+        (context.applicationContext as BiliDownApp).state
     }
+    val taskStatus by appState.taskStatus.collectAsState()
+
     var recordList by remember {
         mutableStateOf(emptyList<OutRecord>())
     }
-    LaunchedEffect(context) {
-        BiliDownService.status.collect {
-            status = it
-        }
-    }
-
 
     action.collectAction {
         when (it) {
@@ -135,16 +133,16 @@ fun ProgressPagePresenter(
         }
     }
     return ProgressPageState(
-        status,
+        taskStatus,
         recordList,
     )
 }
 
 @Composable
 fun TaskProgress(
-    status: BiliDownService.Status,
+    status: TaskStatus,
 ) {
-    if (status is BiliDownService.Status.InIdle) {
+    if (status is TaskStatus.InIdle) {
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center,
@@ -198,28 +196,28 @@ fun TaskProgress(
                                 modifier = Modifier.weight(1f),
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            if (status is BiliDownService.Status.InProgress) {
+                            if (status is TaskStatus.InProgress) {
                                 Text(
                                     text = "导出中：${(status.progress * 100).toInt()}%",
                                     maxLines = 1,
                                     color = MaterialTheme.colorScheme.outline,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                            } else if (status is BiliDownService.Status.Copying) {
+                            } else if (status is TaskStatus.Copying) {
                                 Text(
                                     text = "导出复制中",
                                     maxLines = 1,
                                     color = MaterialTheme.colorScheme.outline,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                            } else if (status is BiliDownService.Status.CopyingToTemp) {
+                            } else if (status is TaskStatus.CopyingToTemp) {
                                 Text(
                                     text = "正在复制文件到临时目录",
                                     maxLines = 1,
                                     color = MaterialTheme.colorScheme.outline,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                            } else if (status is BiliDownService.Status.Error) {
+                            } else if (status is TaskStatus.Error) {
                                 Text(
                                     text = "错误：" + status.message,
                                     maxLines = 1,
@@ -299,7 +297,7 @@ fun ProgressPage(
     }
     LaunchedEffect(
         channel,
-        state.status is BiliDownService.Status.InIdle,
+        state.status is TaskStatus.InIdle,
     ) {
         channel.send(ProgressPageAction.GetTaskList)
     }
@@ -357,6 +355,11 @@ fun ProgressPage(
                     )
                 }
             )
+        }
+
+
+        items(40) {
+            Text(text = it.toString())
         }
 
         item("RecordList-foot") {
