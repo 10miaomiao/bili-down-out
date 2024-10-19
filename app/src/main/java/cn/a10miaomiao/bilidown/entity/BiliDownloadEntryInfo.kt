@@ -13,8 +13,9 @@ data class BiliDownloadEntryInfo(
     var total_bytes: Long,
     var downloaded_bytes: Long,
     val title: String,
-    val type_tag: String,
+    val type_tag: String? = null,
     val cover: String,
+    val video_quality: Int,
     val prefered_video_quality: Int,
     val quality_pithy_description: String = "",
     val guessed_total_bytes: Int,
@@ -52,6 +53,9 @@ data class BiliDownloadEntryInfo(
             return title
         }
 
+    val videoDirName: String
+        get() = type_tag ?: video_quality.toString()
+
     // 视频分P信息
     @Serializable
     @Parcelize
@@ -76,7 +80,7 @@ data class BiliDownloadEntryInfo(
     data class SourceInfo(
         val av_id: Long,
         val cid: Long,
-        val website: String,
+//        val website: String,
     ): Parcelable
 
     // 番剧剧集信息

@@ -130,7 +130,7 @@ class UserService: IUserService.Stub, CoroutineScope {
         val outFile = File(outFilePath)
         val json = Json { ignoreUnknownKeys = true }
         val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
-        val videoDirPath = entryDirPath + "/" + entry.type_tag
+        val videoDirPath = entryDirPath + "/" + entry.videoDirName
         val videoDir = File(videoDirPath)
         val videoOutInfo = VideoOutInfo(
             entryDirPath = entryDirPath!!,
@@ -143,11 +143,11 @@ class UserService: IUserService.Stub, CoroutineScope {
         )
         if (!videoDir.exists() || !videoDir.isDirectory) {
             val videoFile = entryDirFile.listFiles()?.find {
-                it.isFile && it.name.startsWith(entry.type_tag)
+                it.isFile && it.name.startsWith(entry.videoDirName)
                         && it.name.endsWith(".mp4")
             }
             if (videoFile == null) {
-                return "找不到视频文件夹：${entry.type_tag}"
+                return "找不到视频文件夹：${entry.videoDirName}"
             }
             // 直接复制mp4文件
             callback?.onStart(videoOutInfo)

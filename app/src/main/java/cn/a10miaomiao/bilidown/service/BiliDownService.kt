@@ -138,15 +138,15 @@ class BiliDownService :
         val json = Json { ignoreUnknownKeys = true }
         val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
 
-        val videoDirPath = entryDirPath + "/" + entry.type_tag
+        val videoDirPath = entryDirPath + "/" + entry.videoDirName
         val videoDir = File(videoDirPath)
         if (!videoDir.exists() || !videoDir.isDirectory) {
             val videoFile = entryDirFile.listFiles().find {
-                it.isFile && it.name.startsWith(entry.type_tag)
+                it.isFile && it.name.startsWith(entry.videoDirName)
                         && it.name.endsWith(".mp4")
             }
             if (videoFile == null) {
-                toast("找不到视频文件夹：${entry.type_tag}")
+                toast("找不到视频文件夹：${entry.videoDirName}")
                 return false
             }
             // 直接复制mp4文件
@@ -244,15 +244,15 @@ class BiliDownService :
         val entryJsonFile = MiaoDocumentFile(this, entryDirFile, "/entry.json")
         val json = Json { ignoreUnknownKeys = true }
         val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
-        val videoDir = MiaoDocumentFile(this, entryDirFile, "/${entry.type_tag}")
+        val videoDir = MiaoDocumentFile(this, entryDirFile, "/${entry.videoDirName}")
 
         if (!videoDir.exists() || !videoDir.isDirectory) {
             val videoFile = entryDirFile.listFiles().find {
-                it.isFile && it.name?.startsWith(entry.type_tag) == true
+                it.isFile && it.name?.startsWith(entry.videoDirName) == true
                         && it.name?.endsWith(".mp4") == true
             }
             if (videoFile == null) {
-                toast("找不到视频文件夹：${entry.type_tag}")
+                toast("找不到视频文件夹：${entry.videoDirName}")
                 return false
             }
             // 直接复制mp4文件
