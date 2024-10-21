@@ -8,18 +8,22 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.datastore.preferences.core.edit
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.lifecycleScope
+import cn.a10miaomiao.bilidown.BiliDownApp
 import cn.a10miaomiao.bilidown.MainActivity
 import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.common.datastore.DataStoreKeys
 import cn.a10miaomiao.bilidown.common.datastore.dataStore
 import cn.a10miaomiao.bilidown.common.permission.StoragePermission
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuProvider.MANAGER_APPLICATION_ID
@@ -37,19 +41,36 @@ class ShizukuPermission(
 
     private var resultCallBack: (() -> Unit)? = null
 
-    private val state = MutableStateFlow(
-        ShizukuPermissionState()
-    )
+    private val appState = (activity.application as BiliDownApp).state
 
     @Composable
-    fun collectState(): ShizukuPermissionState {
-        return state.collectAsState().value
+    fun collectState(): State<ShizukuPermissionState> {
+        return appState.shizukuState.collectAsState()
     }
 
     init {
         Shizuku.addBinderReceivedListenerSticky(this)
         Shizuku.addBinderDeadListener(this)
         Shizuku.addRequestPermissionResultListener(this)
+    }
+
+    fun onCreate() {
+        activity.lifecycleScope.launch {
+            activity.dataStore.data.map {
+                it[DataStoreKeys.enabledShizuku]
+            }.collect {
+                if (it == true) {
+                    syncShizukuState(activity)
+                } else {
+                    val state = appState.shizukuState.value
+                    appState.putShizukuState(
+                        state.copy(
+                            isEnabled = false,
+                        )
+                    )
+                }
+            }
+        }
     }
 
     fun onDestroy() {
@@ -61,28 +82,39 @@ class ShizukuPermission(
     override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
         when (requestCode) {
             SHIZUKU_PERMISSION_REQUEST_CODE -> {
-                state.value = state.value.copy(
-                    isGranted = grantResult == PackageManager.PERMISSION_DENIED
+                val state = appState.shizukuState.value
+                appState.putShizukuState(
+                    state.copy(
+                        isGranted = grantResult == PackageManager.PERMISSION_DENIED
+                    )
                 )
             }
         }
     }
 
     override fun onBinderReceived() {
-        state.value = state.value.copy(
-            isRunning = true
+        val state = appState.shizukuState.value
+        appState.putShizukuState(
+            state.copy(
+                isRunning = true
+            )
         )
     }
 
     override fun onBinderDead() {
+        val state = appState.shizukuState.value
         if (Shizuku.isPreV11()) {
-            state.value = state.value.copy(
-                isPreV11 = true,
-                isRunning = false,
+            appState.putShizukuState(
+                state.copy(
+                    isPreV11 = true,
+                    isRunning = false,
+                )
             )
         } else {
-            state.value = state.value.copy(
-                isRunning = true
+            appState.putShizukuState(
+                state.copy(
+                    isRunning = true,
+                )
             )
         }
     }
@@ -108,23 +140,30 @@ class ShizukuPermission(
         }
         if (isRunning()) {
             val isGranted = checkSelfPermission()
-            state.value = ShizukuPermissionState(
+            val state = appState.shizukuState.value
+            val newState = ShizukuPermissionState(
                 isInstalled = true,
                 isPreV11 = Shizuku.isPreV11(),
                 isRunning = true,
                 isGranted = isGranted,
-                isEnabled = isGranted && state.value.isEnabled,
+                isEnabled = isGranted && state.isEnabled,
             )
+            appState.putShizukuState(newState)
             activity.lifecycleScope.launch {
                 activity.dataStore.edit {
-                    state.value = state.value.copy(
-                        isEnabled = isGranted && (it[DataStoreKeys.enabledShizuku] ?: false),
+                    val state = appState.shizukuState.value
+                    appState.putShizukuState(
+                        state.copy(
+                            isEnabled = isGranted && (it[DataStoreKeys.enabledShizuku] ?: false),
+                        )
                     )
                 }
             }
         } else {
-            state.value = ShizukuPermissionState(
-                isInstalled = isInstalled(context),
+            appState.putShizukuState(
+                ShizukuPermissionState(
+                    isInstalled = isInstalled(context),
+                )
             )
         }
     }
@@ -152,7 +191,7 @@ class ShizukuPermission(
     }
 
     fun setEnabled(enabled: Boolean) {
-        state.value = state.value.copy(
+        ShizukuPermissionState(
             isEnabled = enabled
         )
         activity.lifecycleScope.launch {

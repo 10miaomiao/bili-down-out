@@ -9,6 +9,7 @@ class BiliDownApp: Application() {
 
     override fun onCreate() {
         super.onCreate()
+        state.init(this)
     }
 
 }

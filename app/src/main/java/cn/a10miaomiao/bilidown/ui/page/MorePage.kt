@@ -3,7 +3,12 @@ package cn.a10miaomiao.bilidown.ui.page
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Switch
@@ -14,8 +19,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import cn.a10miaomiao.bilidown.R
 import cn.a10miaomiao.bilidown.common.BiliDownUtils
@@ -49,7 +56,7 @@ fun MorePagePresenter(
     LaunchedEffect(Unit) {
         val manager = context.packageManager
         val info = manager.getPackageInfo(context.packageName, 0)
-        versionName = info.versionName
+        versionName = info.versionName.toString()
     }
     action.collectAction {
         when (it) {
@@ -68,7 +75,7 @@ fun MorePage(
 ) {
     val context = LocalContext.current
     val shizukuPermission = localShizukuPermission()
-    val shizukuPermissionState = shizukuPermission.collectState()
+    val shizukuPermissionState by shizukuPermission.collectState()
     val (state, channel) = rememberPresenter {
         MorePagePresenter(context, it)
     }
@@ -100,7 +107,11 @@ fun MorePage(
         action = dialogAction,
         onDismiss = { dialogAction = ShizukuHelpDialogAction.None }
     )
-    Column {
+    val scrollableState = rememberScrollState()
+    Column(
+        modifier = Modifier.verticalScroll(scrollableState)
+            .padding(bottom = 80.dp)
+    ) {
         val isAboveN = ShizukuPermission.isAboveN
         SettingItem(
             title = "Shizuku",

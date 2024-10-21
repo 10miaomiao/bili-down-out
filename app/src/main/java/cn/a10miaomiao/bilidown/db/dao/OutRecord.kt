@@ -15,4 +15,10 @@ data class OutRecord (
     @ColumnInfo val type: Int,
     @ColumnInfo(name = "create_time") val createTime: Long,
     @ColumnInfo(name = "update_time") val updateTime: Long,
-)
+) {
+    companion object {
+        const val STATUS_WAIT = 0
+        const val STATUS_SUCCESS = 1
+        const val STATUS_FAIL = 2
+    }
+}

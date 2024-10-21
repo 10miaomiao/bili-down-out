@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         lifecycleScope.launch {
             biliDownService = BiliDownService.getService(this@MainActivity)
         }
+        shizukuPermission.onCreate()
 //        bindUserService()
     }
 

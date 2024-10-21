@@ -83,6 +83,7 @@ class BiliDownService :
             channel.send(this@BiliDownService)
             appState.taskStatus.collect {
                 if (it is TaskStatus.InIdle) {
+
                     // 空闲状态，进行下一个任务
                 }
             }
@@ -98,9 +99,9 @@ class BiliDownService :
     suspend fun exportBiliVideo(
         entryDirPath: String,
         outFile: File,
-        enabledShizuku: Boolean,
     ): Boolean {
         val taskStatus = appState.taskStatus.value
+        val shizukuState = appState.shizukuState.value
         if (taskStatus != TaskStatus.InIdle && taskStatus !is TaskStatus.Error) {
             toast("有视频正在导出中，请稍后再试")
             return false
@@ -111,9 +112,8 @@ class BiliDownService :
             toast("此视频已导出")
             return false
         }
-
         // 使用Shizuku
-        if (enabledShizuku) {
+        if (shizukuState.isEnabled) {
             val shizukuUserService = RemoteServiceUtil.getUserService()
             val errorMessage = shizukuUserService.exportBiliVideo(
                 entryDirPath,
@@ -418,6 +418,7 @@ class BiliDownService :
             outFile.path,
             outFile.name,
             currentStatus.cover,
+            status = OutRecord.STATUS_SUCCESS
         )
         appState.putTaskStatus(TaskStatus.InIdle)
     }
@@ -433,6 +434,7 @@ class BiliDownService :
             outFile.path,
             outFile.name,
             currentStatus.cover,
+            status = OutRecord.STATUS_SUCCESS
         )
         appState.putTaskStatus(TaskStatus.InIdle)
     }
@@ -469,6 +471,7 @@ class BiliDownService :
                         outFile.path,
                         outFile.name,
                         currentStatus.cover,
+                        status = OutRecord.STATUS_SUCCESS
                     )
                 }
                 val tempPath = getTempPath()
@@ -518,6 +521,7 @@ class BiliDownService :
                         outFile.path,
                         outFile.name,
                         currentStatus.cover,
+                        status = OutRecord.STATUS_SUCCESS
                     )
                 }
                 val tempPath = getTempPath()
@@ -535,19 +539,34 @@ class BiliDownService :
         outFilePath: String,
         title: String,
         cover: String,
+        status: Int,
     ) {
+        val outRecordDao = appDatabase.outRecordDao()
+        val record = outRecordDao.findByPath(entryDirPath)
         val currentTime = System.currentTimeMillis()
-        val task = OutRecord(
-            entryDirPath = entryDirPath,
-            outFilePath = outFilePath,
-            title = title,
-            cover = cover,
-            status = 1,
-            type = 1,
-            createTime = currentTime,
-            updateTime = currentTime,
-        )
-        appDatabase.outRecordDao().insertAll(task)
+        if (record == null) {
+            val newRecord = OutRecord(
+                entryDirPath = entryDirPath,
+                outFilePath = outFilePath,
+                title = title,
+                cover = cover,
+                status = status,
+                type = 1,
+                createTime = currentTime,
+                updateTime = currentTime,
+            )
+            outRecordDao.insertAll(newRecord)
+        } else {
+            val newRecord = record.copy(
+                entryDirPath = entryDirPath,
+                outFilePath = outFilePath,
+                title = title,
+                cover = cover,
+                status = status,
+                updateTime = currentTime,
+            )
+            outRecordDao.update(newRecord)
+        }
     }
 
     fun tryAddOutRecord(
@@ -557,12 +576,58 @@ class BiliDownService :
         cover: String,
     ) {
         launch {
-            addOutRecord(entryDirPath, outFilePath, title, cover)
+            addOutRecord(
+                entryDirPath, outFilePath, title, cover,
+                status = OutRecord.STATUS_SUCCESS
+            )
         }
     }
 
-    suspend fun getTaskList(): List<OutRecord> {
+    suspend fun getRecordList(): List<OutRecord> {
         return appDatabase.outRecordDao().getAll()
+    }
+
+    suspend fun getRecordList(status: Int): List<OutRecord> {
+        return appDatabase.outRecordDao().getAllByStatus(status)
+    }
+
+    suspend fun getRecordList(paths: Array<String>): List<OutRecord> {
+        return appDatabase.outRecordDao().getAllByEntryDirPaths(paths)
+    }
+
+    suspend fun addTask(
+        entryDirPath: String,
+        outFilePath: String,
+        title: String,
+        cover: String,
+    ) {
+        val outRecordDao = appDatabase.outRecordDao()
+        val record = outRecordDao.findByPath(entryDirPath)
+        val currentTime = System.currentTimeMillis()
+        if (record == null) {
+            val newRecord = OutRecord(
+                entryDirPath = entryDirPath,
+                outFilePath = outFilePath,
+                title = title,
+                cover = cover,
+                status = OutRecord.STATUS_WAIT,
+                type = 1,
+                createTime = currentTime,
+                updateTime = currentTime,
+            )
+            outRecordDao.insertAll(newRecord)
+            withContext(Dispatchers.Main) {
+                toast("成功创建任务：${title}")
+            }
+        } else {
+            withContext(Dispatchers.Main) {
+                if (record.status == OutRecord.STATUS_SUCCESS) {
+                    toast("该视频已导出：${record.title}")
+                } else {
+                    toast("该视频已在队列中：${record.title}")
+                }
+            }
+        }
     }
 
     suspend fun delTask(
