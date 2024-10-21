@@ -20,5 +20,6 @@ data class OutRecord (
         const val STATUS_WAIT = 0
         const val STATUS_SUCCESS = 1
         const val STATUS_FAIL = 2
+        const val STATUS_IN_PROGRESS = 10
     }
 }

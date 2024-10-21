@@ -11,6 +11,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.room.Room
 import cn.a10miaomiao.bilidown.BiliDownApp
 import cn.a10miaomiao.bilidown.common.CommandUtil
+import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.common.file.MiaoDocumentFile
 import cn.a10miaomiao.bilidown.db.AppDatabase
 import cn.a10miaomiao.bilidown.db.dao.OutRecord
@@ -24,6 +25,7 @@ import io.microshow.rxffmpeg.RxFFmpegInvoke
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -81,10 +83,20 @@ class BiliDownService :
         job = Job()
         launch {
             channel.send(this@BiliDownService)
+            MiaoLog.debug {
+                "appState.taskStatus.collect"
+            }
             appState.taskStatus.collect {
+                MiaoLog.debug {
+                    "appState.taskStatus.collect" + it
+                }
                 if (it is TaskStatus.InIdle) {
-
                     // 空闲状态，进行下一个任务
+                    val waitRecords = appDatabase.outRecordDao()
+                        .getAllByStatus(OutRecord.STATUS_WAIT)
+                    if (waitRecords.isNotEmpty()) {
+                        startTask(waitRecords.first())
+                    }
                 }
             }
         }
@@ -108,13 +120,19 @@ class BiliDownService :
         }
 
         val t = appDatabase.outRecordDao().findByPath(entryDirPath)
-        if (t != null) {
+        if (t != null && t.status == OutRecord.STATUS_SUCCESS) {
             toast("此视频已导出")
             return false
         }
         // 使用Shizuku
         if (shizukuState.isEnabled) {
-            val shizukuUserService = RemoteServiceUtil.getUserService()
+            val shizukuUserService = try {
+                RemoteServiceUtil.getUserService()
+            } catch (e: TimeoutCancellationException) {
+                e.printStackTrace()
+                toast("Shizuku连接超时！")
+                return false
+            }
             val errorMessage = shizukuUserService.exportBiliVideo(
                 entryDirPath,
                 outFile.path,
@@ -595,6 +613,24 @@ class BiliDownService :
         return appDatabase.outRecordDao().getAllByEntryDirPaths(paths)
     }
 
+    suspend fun startTask(
+        task: OutRecord,
+    ) {
+        val isSuccess = exportBiliVideo(
+            task.entryDirPath,
+            File(task.outFilePath)
+        )
+        if (isSuccess) {
+            addOutRecord(
+                task.entryDirPath,
+                task.outFilePath,
+                task.title,
+                task.cover,
+                status = OutRecord.STATUS_IN_PROGRESS
+            )
+        }
+    }
+
     suspend fun addTask(
         entryDirPath: String,
         outFilePath: String,
@@ -616,16 +652,12 @@ class BiliDownService :
                 updateTime = currentTime,
             )
             outRecordDao.insertAll(newRecord)
-            withContext(Dispatchers.Main) {
-                toast("成功创建任务：${title}")
-            }
+            toast("成功创建任务：${title}")
         } else {
-            withContext(Dispatchers.Main) {
-                if (record.status == OutRecord.STATUS_SUCCESS) {
-                    toast("该视频已导出：${record.title}")
-                } else {
-                    toast("该视频已在队列中：${record.title}")
-                }
+            if (record.status == OutRecord.STATUS_SUCCESS) {
+                toast("该视频已导出：${record.title}")
+            } else {
+                toast("该视频已在队列中：${record.title}")
             }
         }
     }

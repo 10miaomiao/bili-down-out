@@ -55,13 +55,12 @@ data class ProgressPageState(
 sealed class ProgressPageAction {
     object GetTaskList : ProgressPageAction()
     object OpenOutFolder : ProgressPageAction()
-    class OpenVideo(
+    class StartTask(
         val record: OutRecord
     ) : ProgressPageAction()
 
-    class DeleteOutRecord(
+    class RemoveTask(
         val record: OutRecord,
-        val isDeleteFile: Boolean,
     ) : ProgressPageAction()
 }
 
@@ -86,7 +85,7 @@ fun ProgressPagePresenter(
 
             is ProgressPageAction.GetTaskList -> {
                 val biliDownService = BiliDownService.getService(context)
-                recordList = biliDownService.getTaskList()
+                recordList = biliDownService.getRecordList(OutRecord.STATUS_WAIT)
                 withContext(Dispatchers.IO) {
                     recordList = recordList.map { record ->
                         if (record.status == 1) {
@@ -101,34 +100,14 @@ fun ProgressPagePresenter(
                 }
             }
 
-            is ProgressPageAction.OpenVideo -> {
-                val videoFile = File(it.record.outFilePath)
-                if (videoFile.exists()) {
-                    val intent = Intent(Intent.ACTION_VIEW)
-                    val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        intent.flags =
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
-                        FileProvider.getUriForFile(
-                            context,
-                            "cn.a10miaomiao.bilidown.fileprovider",
-                            videoFile
-                        )
-                    } else {
-                        Uri.fromFile(videoFile)
-                    }
-                    intent.setDataAndType(uri, "video/*")
-                    context.startActivity(intent)
-                } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "视频文件不存在", Toast.LENGTH_SHORT)
-                            .show()
-                    }
-                }
-            }
-            is ProgressPageAction.DeleteOutRecord -> {
+            is ProgressPageAction.StartTask -> {
                 val biliDownService = BiliDownService.getService(context)
-                biliDownService.delTask(it.record, it.isDeleteFile)
-                recordList = biliDownService.getTaskList()
+                biliDownService.startTask(it.record)
+            }
+            is ProgressPageAction.RemoveTask -> {
+                val biliDownService = BiliDownService.getService(context)
+                biliDownService.delTask(it.record, false)
+                recordList = biliDownService.getRecordList(OutRecord.STATUS_WAIT)
             }
         }
     }
@@ -238,33 +217,19 @@ fun TaskProgress(
 }
 
 @Composable
-internal fun ReconfirmDeleteDialog(
+internal fun ReconfirmRemoveDialog(
     channel: Channel<ProgressPageAction>,
-    action: ProgressPageAction.DeleteOutRecord?,
+    action: ProgressPageAction.RemoveTask?,
     onDismiss: () -> Unit,
 ) {
     if (action != null) {
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
-                if (action.isDeleteFile) {
-                    Text(text = "确认删除该条记录，并删除文件？")
-                } else {
-                    Text(text = "确认删除该条记录？")
-                }
+                Text(text = "确认移除该条任务？")
             },
             text = {
-                Column {
-                    Text("删除：" + action.record.title)
-                    if (action.isDeleteFile) {
-                        Text(
-                            color = Color.Red,
-                            text = "删除记录，并同时删除导出文件",
-                        )
-                    } else {
-                        Text("仅删除记录，不删除文件")
-                    }
-                }
+                Text("移除：" + action.record.title)
             },
             confirmButton = {
                 TextButton(
@@ -297,33 +262,25 @@ fun ProgressPage(
     }
     LaunchedEffect(
         channel,
-        state.status is TaskStatus.InIdle,
+        state.status,
     ) {
         channel.send(ProgressPageAction.GetTaskList)
     }
 
-    var showOutFolderDialog by remember {
-        mutableStateOf(false)
+    var reconfirmRemoveDialogAction by remember {
+        mutableStateOf<ProgressPageAction.RemoveTask?>(null)
     }
-    OutFolderDialog(
-        showOutFolderDialog = showOutFolderDialog,
-        onDismiss = {
-            showOutFolderDialog = false
-        },
-    )
-
-    var reconfirmDeleteDialogAction by remember {
-        mutableStateOf<ProgressPageAction.DeleteOutRecord?>(null)
-    }
-    ReconfirmDeleteDialog(
+    ReconfirmRemoveDialog(
         channel = channel,
-        action = reconfirmDeleteDialogAction,
+        action = reconfirmRemoveDialogAction,
         onDismiss = {
-            reconfirmDeleteDialogAction = null
+            reconfirmRemoveDialogAction = null
         },
     )
 
-    LazyColumn() {
+    LazyColumn(
+        contentPadding = PaddingValues(bottom = 80.dp),
+    ) {
         item("TaskProgress-head") {
             Text(
                 text = "正在进行",
@@ -333,45 +290,30 @@ fun ProgressPage(
         item("TaskProgress") {
             TaskProgress(status = state.status)
         }
-        item("RecordList-head") {
-            Text(
-                text = "导出记录",
-                modifier = Modifier.padding(10.dp)
-            )
-        }
-        items(state.recordList, { it.id!! }) { item ->
-            RecordItem(
-                title = item.title,
-                cover = item.cover,
-                status = item.status,
-                onClick = {
-                    channel.trySend(
-                        ProgressPageAction.OpenVideo(item)
-                    )
-                },
-                onDeleteClick = {
-                    reconfirmDeleteDialogAction = ProgressPageAction.DeleteOutRecord(
-                        record = item, isDeleteFile = it
-                    )
-                }
-            )
-        }
+        if (state.recordList.isNotEmpty()) {
+            item("RecordList-head") {
+                Text(
+                    text = "导出队列",
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
 
-
-        items(40) {
-            Text(text = it.toString())
-        }
-
-        item("RecordList-foot") {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                TextButton(
-                    onClick = { showOutFolderDialog = true }
-                ) {
-                    Text(text = "导出文件夹在哪？")
-                }
+            items(state.recordList, { it.id!! }) { item ->
+                RecordItem(
+                    title = item.title,
+                    cover = item.cover,
+                    status = item.status,
+                    onClick = {
+                        channel.trySend(
+                            ProgressPageAction.StartTask(item)
+                        )
+                    },
+                    onDeleteClick = {
+                        reconfirmRemoveDialogAction = ProgressPageAction.RemoveTask(
+                            record = item
+                        )
+                    }
+                )
             }
         }
 

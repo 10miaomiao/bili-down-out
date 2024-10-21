@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
+import cn.a10miaomiao.bilidown.BiliDownApp
 import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.common.molecule.collectAction
 import cn.a10miaomiao.bilidown.common.molecule.rememberPresenter
@@ -48,6 +50,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 data class OutListPageState(
+    val status: TaskStatus,
     val recordList: List<OutRecord>,
 )
 
@@ -70,27 +73,38 @@ fun OutListPagePresenter(
     context: Context,
     action: Flow<OutListPageAction>,
 ): OutListPageState {
+    val appState = remember(context) {
+        (context.applicationContext as BiliDownApp).state
+    }
+    val taskStatus by appState.taskStatus.collectAsState()
+
     var recordList by remember {
         mutableStateOf(emptyList<OutRecord>())
+    }
+
+    suspend fun getRecordList(
+        biliDownService: BiliDownService
+    ) {
+        recordList = biliDownService.getRecordList(OutRecord.STATUS_SUCCESS)
+        withContext(Dispatchers.IO) {
+            recordList = recordList.map { record ->
+                if (record.status == OutRecord.STATUS_SUCCESS) {
+                    val exists = File(record.outFilePath).exists()
+                    record.copy(
+                        status = if (exists) 1 else -1,
+                    )
+                } else {
+                    record
+                }
+            }
+        }
     }
 
     action.collectAction {
         when (it) {
             OutListPageAction.GetRecordList -> {
                 val biliDownService = BiliDownService.getService(context)
-                recordList = biliDownService.getRecordList(OutRecord.STATUS_SUCCESS)
-                withContext(Dispatchers.IO) {
-                    recordList = recordList.map { record ->
-                        if (record.status == OutRecord.STATUS_SUCCESS) {
-                            val exists = File(record.outFilePath).exists()
-                            record.copy(
-                                status = if (exists) 1 else -1,
-                            )
-                        } else {
-                            record
-                        }
-                    }
-                }
+                getRecordList(biliDownService)
             }
             is OutListPageAction.OpenVideo -> {
                 val videoFile = File(it.record.outFilePath)
@@ -119,12 +133,13 @@ fun OutListPagePresenter(
             is OutListPageAction.DeleteRecord -> {
                 val biliDownService = BiliDownService.getService(context)
                 biliDownService.delTask(it.record, it.isDeleteFile)
-                recordList = biliDownService.getRecordList(OutRecord.STATUS_WAIT)
+                getRecordList(biliDownService)
             }
         }
     }
 
     return OutListPageState(
+        status = taskStatus,
         recordList = recordList,
     )
 }
@@ -188,7 +203,7 @@ fun OutListPage(
         OutListPagePresenter(context, it)
     }
     LaunchedEffect(
-        channel,
+        channel, state.status,
     ) {
         channel.send(OutListPageAction.GetRecordList)
     }
