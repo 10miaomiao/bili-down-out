@@ -57,6 +57,7 @@ fun MainComposeApp() {
             listOf(
                 BiliDownScreen.List,
                 BiliDownScreen.Progress,
+                BiliDownScreen.OutList,
                 BiliDownScreen.More,
             )
         }
@@ -132,7 +133,7 @@ fun MainComposeApp() {
                         navController = navController,
                         currentDestination = currentDestination,
                         bottomNavList = bottomNavList,
-                        showBottomBar = scrollableState.showBottomBar,
+                        showBottomBar = enableBottomBar == true && scrollableState.showBottomBar,
                     )
                 }
             }
@@ -173,6 +174,7 @@ fun MainNavHost(
         ) { ListPage(navController) }
         defaultComposable(BiliDownScreen.More.route) { MorePage(navController) }
         defaultComposable(BiliDownScreen.Progress.route) { ProgressPage(navController) }
+        defaultComposable(BiliDownScreen.OutList.route) { OutListPage(navController) }
         defaultComposable(
             BiliDownScreen.Detail.route + "?packageName={packageName}&dirPath={dirPath}",
             arguments = listOf(

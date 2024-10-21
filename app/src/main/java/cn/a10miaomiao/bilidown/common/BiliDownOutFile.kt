@@ -33,5 +33,8 @@ class BiliDownOutFile(
 
     val file = File(outDir, name)
 
+    val path get() = file.path
+    val name get() = file.name
+
     fun exists() = file.exists()
 }

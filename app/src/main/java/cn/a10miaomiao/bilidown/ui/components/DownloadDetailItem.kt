@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 @Composable
 fun DownloadDetailItem(
     item: DownloadItemInfo,
+    isOut: Boolean,
     onClick: () -> Unit,
     onStartClick: () -> Unit,
     onPauseClick: (taskId: Long) -> Unit,
@@ -62,7 +63,9 @@ fun DownloadDetailItem(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        val status = if (item.is_completed) {
+                        val status = if (isOut) {
+                            "已导出"
+                        } else if (item.is_completed) {
                             "已完成下载"
                         } else {
                             "暂停中"

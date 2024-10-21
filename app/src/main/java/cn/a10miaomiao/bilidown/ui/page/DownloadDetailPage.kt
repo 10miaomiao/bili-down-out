@@ -9,17 +9,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.documentfile.provider.DocumentFile
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import cn.a10miaomiao.bilidown.BiliDownApp
 import cn.a10miaomiao.bilidown.common.BiliDownFile
 import cn.a10miaomiao.bilidown.common.BiliDownOutFile
 import cn.a10miaomiao.bilidown.common.file.MiaoDocumentFile
 import cn.a10miaomiao.bilidown.common.file.MiaoJavaFile
 import cn.a10miaomiao.bilidown.common.molecule.collectAction
 import cn.a10miaomiao.bilidown.common.molecule.rememberPresenter
+import cn.a10miaomiao.bilidown.db.dao.OutRecord
 import cn.a10miaomiao.bilidown.entity.DownloadInfo
 import cn.a10miaomiao.bilidown.entity.DownloadItemInfo
 import cn.a10miaomiao.bilidown.entity.DownloadType
 import cn.a10miaomiao.bilidown.service.BiliDownService
 import cn.a10miaomiao.bilidown.shizuku.localShizukuPermission
+import cn.a10miaomiao.bilidown.state.TaskStatus
 import cn.a10miaomiao.bilidown.ui.BiliDownScreen
 import cn.a10miaomiao.bilidown.ui.components.DownloadDetailItem
 import cn.a10miaomiao.bilidown.ui.components.DownloadListItem
@@ -30,12 +33,20 @@ import java.io.File
 
 data class DownloadDetailPageState(
     val detailInfo: DownloadInfo?,
+    val outRecordMap: Map<String, OutRecord>,
 )
 
 sealed class DownloadDetailPageAction {
     class Export(
         val entryDirPath: String,
         val outFile: BiliDownOutFile,
+    ): DownloadDetailPageAction()
+
+    class AddTask(
+        val entryDirPath: String,
+        val outFilePath: String,
+        val title: String,
+        val cover: String,
     ): DownloadDetailPageAction()
 }
 
@@ -44,7 +55,6 @@ fun DownloadDetailPagePresenter(
     context: Context,
     packageName: String,
     dirPath: String,
-    enabledShizuku: Boolean,
     navController: NavHostController,
     action: Flow<DownloadDetailPageAction>,
 ): DownloadDetailPageState {
@@ -54,8 +64,14 @@ fun DownloadDetailPagePresenter(
     var path by remember {
         mutableStateOf("")
     }
+    val outRecordMap = remember {
+        mutableStateMapOf<String, OutRecord>()
+    }
     LaunchedEffect(packageName, dirPath) {
-        val biliDownFile = BiliDownFile(context, packageName, enabledShizuku)
+        val biliDownService = BiliDownService.getService(context)
+        val appState = (context.applicationContext as BiliDownApp).state
+        val shizukuState = appState.shizukuState.value
+        val biliDownFile = BiliDownFile(context, packageName, shizukuState.isEnabled)
 //        val list = mutableListOf<DownloadInfo>()
         val dirFile = if (dirPath.startsWith("content://")) {
             MiaoDocumentFile(
@@ -117,6 +133,16 @@ fun DownloadDetailPagePresenter(
                 isCompleted = false
             }
         }
+        if (items.isNotEmpty()) {
+            val paths = items.map {
+                it.dir_path
+            }.toTypedArray()
+            val records = biliDownService.getRecordList(paths)
+            outRecordMap.clear()
+            records.forEach {
+                outRecordMap[it.entryDirPath] = it
+            }
+        }
         if (list.isEmpty()) {
             detailInfo = null
         } else {
@@ -145,7 +171,6 @@ fun DownloadDetailPagePresenter(
                 val isSuccess = biliDownService.exportBiliVideo(
                     it.entryDirPath,
                     it.outFile.file,
-                    enabledShizuku,
                 )
                 if (isSuccess) {
                     navController.navigate(BiliDownScreen.Progress.route) {
@@ -158,10 +183,20 @@ fun DownloadDetailPagePresenter(
                 }
             }
 
+            is DownloadDetailPageAction.AddTask -> {
+                val biliDownService = BiliDownService.getService(context)
+                biliDownService.addTask(
+                    it.entryDirPath,
+                    it.outFilePath,
+                    it.title,
+                    it.cover
+                )
+            }
         }
     }
     return DownloadDetailPageState(
         detailInfo,
+        outRecordMap,
     )
 }
 
@@ -172,11 +207,10 @@ fun DownloadDetailPage(
     dirPath: String,
 ) {
     val context = LocalContext.current
-    val shizukuPermission = localShizukuPermission()
-    val shizukuPermissionState = shizukuPermission.collectState()
-    val enabledShizuku = shizukuPermissionState.isEnabled
-    val (state, channel) = rememberPresenter(listOf(packageName, dirPath, enabledShizuku)) {
-        DownloadDetailPagePresenter(context, packageName, dirPath, enabledShizuku, navController, it)
+    val appState = (context.applicationContext as BiliDownApp).state
+    val taskStatus by appState.taskStatus.collectAsState()
+    val (state, channel) = rememberPresenter(listOf(packageName, dirPath)) {
+        DownloadDetailPagePresenter(context, packageName, dirPath, navController, it)
     }
     var selectedItem by remember {
         mutableStateOf<DownloadItemInfo?>(null)
@@ -188,13 +222,26 @@ fun DownloadDetailPage(
         onDismiss = {
             selectedItem = null
         },
+        confirmText = if (taskStatus is TaskStatus.InIdle) {
+            "确定导出"
+        } else { "添加到队列" },
         onConfirm = { outFile ->
             selectedItem?.let { item ->
-                channel.trySend(DownloadDetailPageAction.Export(
-                    entryDirPath = item.dir_path,
-                    outFile = outFile,
-                ))
+                if (taskStatus is TaskStatus.InIdle) {
+                    channel.trySend(DownloadDetailPageAction.Export(
+                        entryDirPath = item.dir_path,
+                        outFile = outFile,
+                    ))
+                } else {
+                    channel.trySend(DownloadDetailPageAction.AddTask(
+                        entryDirPath = item.dir_path,
+                        outFilePath = outFile.path,
+                        title = outFile.name,
+                        cover = item.cover
+                    ))
+                }
             }
+            selectedItem = null
         }
     )
 
@@ -212,6 +259,7 @@ fun DownloadDetailPage(
             items(detailInfo.items, { it.cid }) {
                 DownloadDetailItem(
                     item = it,
+                    isOut = state.outRecordMap.containsKey(it.dir_path),
                     onClick = {
                     },
                     onStartClick = {
@@ -220,7 +268,7 @@ fun DownloadDetailPage(
                     },
                     onExportClick = {
                         selectedItem = it
-                    }
+                    },
                 )
             }
         }

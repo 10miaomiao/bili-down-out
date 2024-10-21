@@ -236,7 +236,7 @@ fun DownloadListPage(
     val storagePermission = localStoragePermission()
     val permissionState = storagePermission.collectState()
     val shizukuPermission = localShizukuPermission()
-    val shizukuPermissionState = shizukuPermission.collectState()
+    val shizukuPermissionState by shizukuPermission.collectState()
 
     val (state, channel) = rememberPresenter(listOf(packageName, permissionState)) {
         DownloadListPagePresenter(context, it)
@@ -409,7 +409,8 @@ fun DownloadListPage(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 80.dp),
             ) {
                 items(state.list, { it.id }) {
                     DownloadListItem(

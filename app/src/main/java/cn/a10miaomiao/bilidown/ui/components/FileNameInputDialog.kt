@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 fun FileNameInputDialog(
     showInputDialog: Boolean,
     fileName: String,
+    confirmText: String,
     onDismiss: () -> Unit,
     onConfirm: (outFile: BiliDownOutFile) -> Unit,
 ) {
@@ -97,7 +98,7 @@ fun FileNameInputDialog(
                 TextButton(
                     onClick = ::handleConfirm,
                 ) {
-                    Text("确认导出")
+                    Text(confirmText)
                 }
             },
             dismissButton = {

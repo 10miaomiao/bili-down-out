@@ -31,6 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilidown.common.UrlUtil
+import cn.a10miaomiao.bilidown.db.dao.OutRecord
 import coil.compose.AsyncImage
 
 @Composable
@@ -85,8 +86,9 @@ fun RecordItem(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             val statusText = when (status) {
-                                0 -> "正在导出中"
-                                1 -> "已导出"
+                                OutRecord.STATUS_WAIT -> "队列中"
+                                OutRecord.STATUS_SUCCESS -> "已导出"
+                                OutRecord.STATUS_FAIL -> "导出出现异常"
                                 -1 -> "导出文件已被删除"
                                 else -> "未导出"
                             }
@@ -107,28 +109,28 @@ fun RecordItem(
                                 ) {
                                     Icon(Icons.Filled.MoreVert, null)
                                 }
+                                val menus = remember<List<String>>(status) {
+                                    if (status == OutRecord.STATUS_SUCCESS) {
+                                        listOf("删除记录", "删除记录及文件")
+                                    } else {
+                                        listOf("移除任务")
+                                    }
+                                }
                                 DropdownMenu(
                                     expanded = expandedMoreMenu,
                                     onDismissRequest = { expandedMoreMenu = false },
                                 ) {
-                                    DropdownMenuItem(
-                                        onClick = {
-                                            expandedMoreMenu = false
-                                            onDeleteClick(false)
-                                        },
-                                        text = {
-                                            Text(text = "删除记录")
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        onClick = {
-                                            expandedMoreMenu = false
-                                            onDeleteClick(true)
-                                        },
-                                        text = {
-                                            Text(text = "删除记录及文件")
-                                        }
-                                    )
+                                    menus.forEachIndexed { index, text ->
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                expandedMoreMenu = false
+                                                onDeleteClick(index == 1)
+                                            },
+                                            text = {
+                                                Text(text = text)
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
