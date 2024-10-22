@@ -1,0 +1,4 @@
+BiliDownOut is a tool for exporting downloaded videos from BiliDownOut App.
+
+Main Features:
+Exporting videos downloaded from Bilibili App
