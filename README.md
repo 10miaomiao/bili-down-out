@@ -13,6 +13,7 @@
 
 ### 关于本项目
 BiliDownOut(哔哩缓存导出)是一个用于导出哔哩哔哩APP离线缓存视频的工具。
+
 高版本安卓(13+)需要使用[Shizuku](https://shizuku.rikka.app/)授权访问Andoird/data文件夹。
 
 主要功能：
