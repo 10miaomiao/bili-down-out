@@ -74,22 +74,13 @@ class BiliDownService :
 
     override fun onCreate() {
         super.onCreate()
-        appDatabase = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "bili-down-out"
-        ).build()
-        appState = (application as BiliDownApp).state
+        val biliDownApp = application as BiliDownApp
+        appDatabase = biliDownApp.database
+        appState = biliDownApp.state
         job = Job()
         launch {
             channel.send(this@BiliDownService)
-            MiaoLog.debug {
-                "appState.taskStatus.collect"
-            }
             appState.taskStatus.collect {
-                MiaoLog.debug {
-                    "appState.taskStatus.collect" + it
-                }
                 if (it is TaskStatus.InIdle) {
                     // 空闲状态，进行下一个任务
                     val waitRecords = appDatabase.outRecordDao()

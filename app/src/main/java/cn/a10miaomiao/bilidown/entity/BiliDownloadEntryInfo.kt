@@ -15,7 +15,7 @@ data class BiliDownloadEntryInfo(
     val title: String,
     val type_tag: String? = null,
     val cover: String,
-    val video_quality: Int,
+    val video_quality: Int? = null,
     val prefered_video_quality: Int,
     val quality_pithy_description: String = "",
     val guessed_total_bytes: Int,

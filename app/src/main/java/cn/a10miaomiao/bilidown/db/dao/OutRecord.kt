@@ -13,6 +13,7 @@ data class OutRecord (
     @ColumnInfo val cover: String,
     @ColumnInfo val status: Int,
     @ColumnInfo val type: Int,
+    @ColumnInfo val message: String? = null,
     @ColumnInfo(name = "create_time") val createTime: Long,
     @ColumnInfo(name = "update_time") val updateTime: Long,
 ) {
