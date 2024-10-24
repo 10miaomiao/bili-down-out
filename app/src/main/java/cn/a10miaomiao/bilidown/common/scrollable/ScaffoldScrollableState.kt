@@ -28,11 +28,6 @@ class ScaffoldNestedScrollConnection(
         available: Offset,
         source: NestedScrollSource
     ): Offset {
-        if (available.y > 0) {
-            state.slideUp()
-        } else if (available.y < 0) {
-            state.slideDown()
-        }
         return Offset.Zero
     }
 
@@ -41,6 +36,11 @@ class ScaffoldNestedScrollConnection(
         available: Offset,
         source: NestedScrollSource
     ): Offset {
+        if (consumed.y > 0) {
+            state.slideUp()
+        } else if (consumed.y < 0) {
+            state.slideDown()
+        }
         return Offset.Zero
     }
 
