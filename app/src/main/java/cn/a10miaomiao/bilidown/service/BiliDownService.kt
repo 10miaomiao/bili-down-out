@@ -5,18 +5,14 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.IBinder
-import android.util.Log
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
-import androidx.room.Room
 import cn.a10miaomiao.bilidown.BiliDownApp
 import cn.a10miaomiao.bilidown.common.CommandUtil
-import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.common.file.MiaoDocumentFile
 import cn.a10miaomiao.bilidown.db.AppDatabase
 import cn.a10miaomiao.bilidown.db.dao.OutRecord
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryInfo
-import cn.a10miaomiao.bilidown.shizuku.service.UserService
 import cn.a10miaomiao.bilidown.shizuku.util.RemoteServiceUtil
 import cn.a10miaomiao.bilidown.state.AppState
 import cn.a10miaomiao.bilidown.state.TaskStatus
@@ -27,7 +23,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -422,7 +417,7 @@ class BiliDownService :
         fileOutputStream.close()
 
         val currentStatus = appState.taskStatus.value
-        addOutRecord(
+        putOutRecord(
             currentStatus.entryDirPath,
             outFile.path,
             outFile.name,
@@ -438,7 +433,7 @@ class BiliDownService :
     ) {
         inputFile.copyToTemp(outFile)
         val currentStatus = appState.taskStatus.value
-        addOutRecord(
+        putOutRecord(
             currentStatus.entryDirPath,
             outFile.path,
             outFile.name,
@@ -475,7 +470,7 @@ class BiliDownService :
             override fun onFinish() {
                 val currentStatus = appState.taskStatus.value
                 launch {
-                    addOutRecord(
+                    putOutRecord(
                         currentStatus.entryDirPath,
                         outFile.path,
                         outFile.name,
@@ -525,7 +520,7 @@ class BiliDownService :
             override fun onFinish() {
                 val currentStatus = appState.taskStatus.value
                 launch {
-                    addOutRecord(
+                    putOutRecord(
                         currentStatus.entryDirPath,
                         outFile.path,
                         outFile.name,
@@ -543,12 +538,13 @@ class BiliDownService :
             .subscribe(myRxFFmpegSubscriber)
     }
 
-    private suspend fun addOutRecord(
+    private suspend fun putOutRecord(
         entryDirPath: String,
         outFilePath: String,
         title: String,
         cover: String,
         status: Int,
+        message: String? = null,
     ) {
         val outRecordDao = appDatabase.outRecordDao()
         val record = outRecordDao.findByPath(entryDirPath)
@@ -563,6 +559,7 @@ class BiliDownService :
                 type = 1,
                 createTime = currentTime,
                 updateTime = currentTime,
+                message = message,
             )
             outRecordDao.insertAll(newRecord)
         } else {
@@ -572,6 +569,7 @@ class BiliDownService :
                 title = title,
                 cover = cover,
                 status = status,
+                message = message,
                 updateTime = currentTime,
             )
             outRecordDao.update(newRecord)
@@ -585,7 +583,7 @@ class BiliDownService :
         cover: String,
     ) {
         launch {
-            addOutRecord(
+            putOutRecord(
                 entryDirPath, outFilePath, title, cover,
                 status = OutRecord.STATUS_SUCCESS
             )
@@ -612,7 +610,7 @@ class BiliDownService :
             File(task.outFilePath)
         )
         if (isSuccess) {
-            addOutRecord(
+            putOutRecord(
                 task.entryDirPath,
                 task.outFilePath,
                 task.title,

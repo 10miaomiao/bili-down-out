@@ -16,7 +16,7 @@ class MyProgressCallback(
         appState.putTaskStatus(
             TaskStatus.InProgress(
                 name = info?.name ?: "unknown name",
-                entryDirPath = info?.name ?: "unknown path",
+                entryDirPath = info?.entryDirPath ?: "unknown path",
                 cover = info?.cover ?: "",
                 progress = 0f
             )

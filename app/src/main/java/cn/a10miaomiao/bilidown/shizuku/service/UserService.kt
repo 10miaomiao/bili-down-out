@@ -135,7 +135,7 @@ class UserService: IUserService.Stub, CoroutineScope {
         val videoOutInfo = VideoOutInfo(
             entryDirPath = entryDirPath!!,
             outFilePath = outFilePath!!,
-            name = entry.name,
+            name = outFile.name,
             cover = entry.cover,
         )
         val myRxFFmpegSubscriber = ShizukuRxFFmpegSubscriber(
