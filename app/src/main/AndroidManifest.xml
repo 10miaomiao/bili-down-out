@@ -58,6 +58,12 @@
                 android:value="" />
         </activity>
 
+        <activity
+            android:name=".LogViewerActivity"
+            android:label="@string/log_viewer"
+            android:theme="@style/Theme.BiliDown">
+        </activity>
+
         <service android:name=".service.BiliDownService"/>
 
         <provider

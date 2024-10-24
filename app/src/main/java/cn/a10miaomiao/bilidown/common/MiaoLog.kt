@@ -15,4 +15,8 @@ object MiaoLog {
         AndroidLog.d("MiaoLog:" + msg::class.java.name.simpleName(), msg())
     }
 
+    fun error(msg: () -> String) {
+        AndroidLog.e("MiaoLog:" + msg::class.java.name.simpleName(), msg())
+    }
+
 }

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">哔哩缓存导出</string>
+
+    <string name="log_viewer">程序日志</string>
+    <string name="copy_log">复制日志</string>
 </resources>

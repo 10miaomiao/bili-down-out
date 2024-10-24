@@ -13,6 +13,7 @@ class BiliDownApp: Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppCrashHandler.getInstance(this)
         state.init(this)
         database = AppDatabase.initialize(this)
     }
