@@ -114,7 +114,7 @@ fun DownloadListPagePresenter(
                 val biliEntry = it.entry
                 var indexTitle = ""
                 var itemTitle = ""
-                var id = 0L
+                var id = biliEntry.avid ?: 0L
                 var cid = 0L
                 var epid = 0L
                 var type = DownloadType.VIDEO
@@ -412,7 +412,7 @@ fun DownloadListPage(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 80.dp),
             ) {
-                items(state.list, { it.id }) {
+                items(state.list, { it.dir_path }) {
                     DownloadListItem(
                         item = it,
                         onClick = {

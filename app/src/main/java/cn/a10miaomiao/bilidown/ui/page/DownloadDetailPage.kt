@@ -91,7 +91,7 @@ fun DownloadDetailPagePresenter(
             val biliEntry = it.entry
             var indexTitle = ""
             var itemTitle = ""
-            var id = 0L
+            var id = it.entry.avid ?: 0L
             var cid = 0L
             var epid = 0L
             var type = DownloadType.VIDEO
@@ -256,7 +256,7 @@ fun DownloadDetailPage(
                     onClick = { },
                 )
             }
-            items(detailInfo.items, { it.cid }) {
+            items(detailInfo.items, { it.dir_path }) {
                 DownloadDetailItem(
                     item = it,
                     isOut = state.outRecordMap.containsKey(it.dir_path),
