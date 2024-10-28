@@ -16,8 +16,8 @@ android {
         applicationId "cn.a10miaomiao.bilidown"
         minSdk 21
         targetSdk 35
-        versionCode 5
-        versionName "0.5 beta"
+        versionCode 100
+        versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -26,14 +26,23 @@ android {
 
     }
 
-    Properties props = new Properties()
-    props.load(new FileInputStream(file("signing.properties")))
-    signingConfigs {
-        release{
-            keyAlias props['KEY_ALIAS']
-            keyPassword props['KEY_PASSWORD']
-            storeFile file(props['KEYSTORE_FILE'])
-            storePassword props['KEYSTORE_PASSWORD']
+    File signingFile = file("signing.properties")
+    if (signingFile.exists()) {
+        Properties props = new Properties()
+        props.load(new FileInputStream(signingFile))
+        signingConfigs {
+            release {
+                keyAlias props['KEY_ALIAS']
+                keyPassword props['KEY_PASSWORD']
+                storeFile file(props['KEYSTORE_FILE'])
+                storePassword props['KEYSTORE_PASSWORD']
+            }
+            debug {
+                keyAlias props['KEY_ALIAS']
+                keyPassword props['KEY_PASSWORD']
+                storeFile file(props['KEYSTORE_FILE'])
+                storePassword props['KEYSTORE_PASSWORD']
+            }
         }
     }
 
@@ -41,7 +50,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (signingConfigs.hasProperty('release')) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {
@@ -74,6 +85,29 @@ android {
             include "armeabi-v7a","arm64-v8a","x86","x86_64"
             universalApk false
         }
+    }
+
+    final abiCodes = [
+        "x86": 1,
+        "x86_64": 2,
+        "armeabi-v7a": 3,
+        "arm64-v8a": 4,
+    ]
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            final abiName = com.android.build.OutputFile.ABI
+            final abiVersionCode = abiCodes.get(output.getFilter(abiName))
+            if (abiVersionCode != null) {
+                output.versionCodeOverride = variant.versionCode * 10 + abiVersionCode
+            }
+        }
+    }
+
+    dependenciesInfo {
+        // Disables dependency metadata when building APKs.
+        includeInApk false
+        // Disables dependency metadata when building Android App Bundles.
+        includeInBundle false
     }
 }
 
