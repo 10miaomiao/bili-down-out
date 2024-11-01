@@ -26,3 +26,7 @@ BiliDownOut(哔哩缓存导出)是一个用于导出哔哩哔哩APP离线缓存�
 ### 下载
 1. 从[GithubRelease](https://github.com/10miaomiao/bili-down-out/releases)下载
 2. 从[GiteeRelease](https://gitee.com/10miaomiao/bili-down-out/releases)下载
+
+[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on-zh-hans.png"
+    alt="下载应用请到 F-Droid"
+    height="80">](https://f-droid.org/packages/cn.a10miaomiao.bilidown)
