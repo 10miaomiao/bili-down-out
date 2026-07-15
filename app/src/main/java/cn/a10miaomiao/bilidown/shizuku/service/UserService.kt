@@ -6,6 +6,7 @@ import android.system.Os
 import android.util.Log
 import androidx.annotation.Keep
 import cn.a10miaomiao.bilidown.callback.ProgressCallback
+import cn.a10miaomiao.bilidown.common.BiliEntryJsonParser
 import cn.a10miaomiao.bilidown.common.CommandUtil
 import cn.a10miaomiao.bilidown.common.MiaoLog
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryAndPathInfo
@@ -19,7 +20,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -108,8 +108,8 @@ class UserService: IUserService.Stub, CoroutineScope {
                 ?.forEach {
                     val (entryDir, entryFile) = it
                     val entryJson = entryFile.readText()
-                    val json = Json { ignoreUnknownKeys = true }
-                    val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJson)
+                    val entry = BiliEntryJsonParser.parseOrNull(entryJson)
+                        ?: return@forEach
                     list.add(BiliDownloadEntryAndPathInfo(
                         entry = entry,
                         entryDirPath = entryDir.path,
@@ -128,8 +128,8 @@ class UserService: IUserService.Stub, CoroutineScope {
         val entryDirFile = File(entryDirPath)
         val entryJsonFile = File(entryDirPath, "entry.json")
         val outFile = File(outFilePath)
-        val json = Json { ignoreUnknownKeys = true }
-        val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
+        val entry = BiliEntryJsonParser.parseOrNull(entryJsonFile.readText())
+            ?: return "entry.json 文件为空或已损坏"
         val videoDirPath = entryDirPath + "/" + entry.videoDirName
         val videoDir = File(videoDirPath)
         val videoOutInfo = VideoOutInfo(
