@@ -10,3 +10,4 @@
 local.properties
 .idea/
 app/signing.properties
+.omo/
