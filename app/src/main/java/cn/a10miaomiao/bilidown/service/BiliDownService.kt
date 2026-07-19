@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import cn.a10miaomiao.bilidown.BiliDownApp
+import cn.a10miaomiao.bilidown.common.BiliEntryJsonParser
 import cn.a10miaomiao.bilidown.common.CommandUtil
 import cn.a10miaomiao.bilidown.common.file.MiaoDocumentFile
 import cn.a10miaomiao.bilidown.db.AppDatabase
@@ -25,7 +26,6 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -139,8 +139,11 @@ class BiliDownService :
         // 使用Java File API正常导出
         val entryDirFile = File(entryDirPath)
         val entryJsonFile = File(entryDirPath, "entry.json")
-        val json = Json { ignoreUnknownKeys = true }
-        val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
+        val entry = BiliEntryJsonParser.parseOrNull(entryJsonFile.readText())
+            ?: run {
+                toast("entry.json 文件为空或已损坏")
+                return false
+            }
 
         val videoDirPath = entryDirPath + "/" + entry.videoDirName
         val videoDir = File(videoDirPath)
@@ -246,8 +249,11 @@ class BiliDownService :
     ): Boolean {
         val entryDirFile = DocumentFile.fromTreeUri(this, Uri.parse(entryDirPath))!!
         val entryJsonFile = MiaoDocumentFile(this, entryDirFile, "/entry.json")
-        val json = Json { ignoreUnknownKeys = true }
-        val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJsonFile.readText())
+        val entry = BiliEntryJsonParser.parseOrNull(entryJsonFile.readText())
+            ?: run {
+                toast("entry.json 文件为空或已损坏")
+                return false
+            }
         val videoDir = MiaoDocumentFile(this, entryDirFile, "/${entry.videoDirName}")
 
         if (!videoDir.exists() || !videoDir.isDirectory) {

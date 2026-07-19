@@ -14,7 +14,6 @@ import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryAndPathInfo
 import cn.a10miaomiao.bilidown.entity.BiliDownloadEntryInfo
 import cn.a10miaomiao.bilidown.shizuku.util.RemoteServiceUtil
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.serialization.json.Json
 import java.io.File
 import kotlin.jvm.Throws
 
@@ -78,17 +77,15 @@ class BiliDownFile(
                 Pair(it, entryFile)
             }
             .filter { it.second.exists() }
-            .map {
+            .mapNotNull {
                 val (entryDir, entryFile) = it
                 val entryJson = entryFile.readText()
-                val json = Json { ignoreUnknownKeys = true }
-                val entry = json.decodeFromString<BiliDownloadEntryInfo>(entryJson)
+                val entry = BiliEntryJsonParser.parseOrNull(entryJson)
+                    ?: return@mapNotNull null
                 BiliDownloadEntryAndPathInfo(
                     entry = entry,
                     entryDirPath = entryDir.path,
                     pageDirPath = dir.path
-//                    entryDirPath = it.parent,
-//                    pageDirPath = it.parentFile.parent
                 )
             }
     }
